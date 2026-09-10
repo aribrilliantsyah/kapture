@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kapture — Kubernetes Log Catcher</title>
+  <link rel="icon" type="image/png" href="/appicon.png">
+  <link rel="stylesheet" href="/styles/main.css">
+</head>
+<body>
+<div class="app" id="app">
+  <!-- Header -->
+  <header class="header">
+    <h1><img src="/appicon.png" width="28" height="28" style="border-radius: 6px; vertical-align: middle;" alt="Kapture"> <span>Kapture</span> <span style="font-size: 11px; font-weight: 400; color: var(--text-muted); margin-left: 6px;">v1.0</span></h1>
+    <div class="header-actions">
+      <button class="btn" onclick="showTab('logs')">📋 Logs</button>
+      <button class="btn" onclick="showTab('storage')">💾 Storage</button>
+      <button class="btn btn-sm" onclick="refreshAll()" title="Refresh">🔄</button>
+      <div id="auth-actions" style="display:flex;align-items:center;gap:6px;margin-left:4px">
+        <span id="user-badge" style="font-size:12px;color:var(--text-muted)"></span>
+        <button id="logout-btn" class="btn btn-sm" style="display:none" onclick="logout()" title="Keluar">🚪 Keluar</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="main">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Namespaces</div>
+        <div id="ns-list">
+          <div class="sidebar-item active" data-ns="" onclick="filterNS('')">● all</div>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Workloads</div>
+        <div id="wl-list"></div>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <div class="content">
+      <!-- Logs Tab -->
+      <div id="tab-logs">
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+          <div class="filter-group">
+            <label class="filter-label">Date</label>
+            <input type="date" id="f-date" onchange="applyFilters()">
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Search</label>
+            <input type="search" id="f-search" placeholder="Search logs..." onkeyup="debounceSearch()">
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Level</label>
+            <div class="level-toggles">
+              <button class="level-btn active" data-level="DEBUG" onclick="toggleLevel(this)">DBG</button>
+              <button class="level-btn active" data-level="INFO" onclick="toggleLevel(this)">INF</button>
+              <button class="level-btn active" data-level="WARN" onclick="toggleLevel(this)">WRN</button>
+              <button class="level-btn active" data-level="ERROR" onclick="toggleLevel(this)">ERR</button>
+              <button class="level-btn active" data-level="FATAL" onclick="toggleLevel(this)">FTL</button>
+            </div>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Pod</label>
+            <select id="f-pod" onchange="applyFilters()">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="filter-group" style="margin-left:auto">
+            <button class="btn btn-sm" onclick="exportLogs('json')">⬇ JSON</button>
+            <button class="btn btn-sm" onclick="exportLogs('csv')">⬇ CSV</button>
+          </div>
+        </div>
+
+        <!-- Log Viewer -->
+        <div class="log-viewer" id="log-viewer">
+          <div class="empty-state" id="empty-state">
+            <div class="icon">📋</div>
+            <div>No logs yet. Select a date or wait for logs to appear.</div>
+          </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+          <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span id="status-text">Ready</span>
+          </div>
+          <div>
+            <span id="log-count">0</span> logs
+          </div>
+        </div>
+      </div>
+
+      <!-- Storage Tab -->
+      <div id="tab-storage" style="display:none">
+        <div class="storage-panel">
+          <h2 style="font-size:16px;margin-bottom:16px">💾 Storage Management</h2>
+
+          <div class="storage-bar">
+            <div class="storage-bar-fill" id="storage-bar-fill" style="width:0%"></div>
+          </div>
+
+          <div class="storage-stats">
+            <div class="stat-card">
+              <div class="stat-label">Disk Used</div>
+              <div class="stat-value" id="st-used">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Disk Limit</div>
+              <div class="stat-value" id="st-limit">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total Entries</div>
+              <div class="stat-value" id="st-entries">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Date Range</div>
+              <div class="stat-value" id="st-range">-</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin:20px 0">
+            <div class="filter-group">
+              <label class="filter-label">Delete Before</label>
+              <input type="date" id="delete-before-date">
+            </div>
+            <button class="btn btn-danger" onclick="deleteBeforeDate()">🗑 Delete</button>
+            <div style="flex:1"></div>
+            <button class="btn btn-danger" onclick="resetAll()">⚠️ Reset All Logs</button>
+          </div>
+
+          <div class="sidebar-title" style="margin-top:20px">Per-Date Breakdown</div>
+          <div class="date-list" id="date-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Log Detail Modal -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <h2>Log Detail <button class="modal-close" onclick="closeModal()">✕</button></h2>
+    <div id="detail-content"></div>
+  </div>
+</div>
+
+<!-- Setup Awal Wizard Modal Overlay (Muncul Hanya Pertama Kali) -->
+<div class="login-overlay" id="setup-modal" style="display:none">
+  <div class="login-card setup-card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <img src="/appicon.png" width="48" height="48" style="border-radius:12px" alt="Kapture">
+      <div>
+        <h2>⚙️ Setup Awal Kapture</h2>
+        <span style="font-size:12px;color:var(--text-muted)">Konfigurasi Akun & Aktifkan 2FA</span>
+      </div>
+    </div>
+
+    <form onsubmit="handleSetupComplete(event)">
+      <!-- Langkah 1: Kredensial Admin -->
+      <div class="setup-step">
+        <div class="step-title"><span class="step-badge">1</span> Kredensial Administrator</div>
+        <div class="login-form">
+          <div class="login-field">
+            <label for="setup-username">Username</label>
+            <input type="text" id="setup-username" value="admin" required autocomplete="username">
+          </div>
+          <div class="login-field">
+            <label for="setup-password">Password Baru (min. 6 karakter)</label>
+            <input type="password" id="setup-password" required minlength="6" autocomplete="new-password">
+          </div>
+          <div class="login-field">
+            <label for="setup-password-confirm">Konfirmasi Password</label>
+            <input type="password" id="setup-password-confirm" required minlength="6" autocomplete="new-password">
+          </div>
+        </div>
+      </div>
+
+      <!-- Langkah 2: Scan QR 2FA Google Authenticator -->
+      <div class="setup-step">
+        <div class="step-title"><span class="step-badge">2</span> Pindai 2FA (Google Authenticator / Authy)</div>
+        <div class="qr-container">
+          <img id="setup-qr-img" class="qr-image" alt="QR Code 2FA">
+          <div class="secret-key-box">
+            <span>Kunci Manual:</span>
+            <code id="setup-secret-text" class="secret-key-text">MEMUAT...</code>
+            <button type="button" class="btn btn-sm" onclick="copySetupSecret()" title="Salin Kunci">📋</button>
+          </div>
+        </div>
+
+        <div class="login-field">
+          <label for="setup-otp">Masukkan 6-Digit Kode Verifikasi OTP</label>
+          <input type="text" id="setup-otp" class="otp-input" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required autocomplete="one-time-code">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary login-btn">Simpan & Aktifkan 2FA</button>
+      <div class="login-error" id="setup-error"></div>
+    </form>
+  </div>
+</div>
+
+<!-- Login Modal Overlay (2-Step Login: User/Pass -> 2FA) -->
+<div class="login-overlay" id="login-modal" style="display:none">
+  <div class="login-card">
+    <img src="/appicon.png" class="login-icon" alt="Kapture">
+    <h2 id="login-title">Masuk ke Kapture</h2>
+    <p id="login-subtitle">Kubernetes Log Catcher Dashboard</p>
+
+    <!-- Langkah 1: Input Username & Password -->
+    <form id="login-form-step1" class="login-form" onsubmit="handleLoginStep1(event)">
+      <div class="login-field">
+        <label for="login-username">Username</label>
+        <input type="text" id="login-username" required autocomplete="username" placeholder="admin">
+      </div>
+      <div class="login-field">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" required autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button type="submit" id="login-btn-step1" class="btn btn-primary login-btn">Lanjutkan →</button>
+      <div class="login-error" id="login-error-step1"></div>
+    </form>
+
+    <!-- Langkah 2: Input 2FA OTP (Muncul Setelah Password Benar) -->
+    <form id="login-form-step2" class="login-form" style="display:none" onsubmit="handleLoginStep2(event)">
+      <div style="background:var(--bg);padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);text-align:left;margin-bottom:4px">
+        <div style="font-size:11px;color:var(--text-muted)">Akun Terverifikasi:</div>
+        <div style="font-weight:600;color:var(--accent);font-size:13px" id="login-user-confirmed">admin</div>
+      </div>
+      <div class="login-field">
+        <label for="login-otp">Kode 2FA (Google Authenticator)</label>
+        <input type="text" id="login-otp" class="otp-input" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required autocomplete="one-time-code">
+      </div>
+      <button type="submit" id="login-btn-step2" class="btn btn-primary login-btn">Verifikasi & Masuk</button>
+      <button type="button" class="btn btn-sm" style="margin-top:6px;justify-content:center" onclick="backToLoginStep1()">← Ganti Akun</button>
+      <div class="login-error" id="login-error-step2"></div>
+    </form>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: k8s-log-catcher-agent
+  namespace: log-catcher
+  labels:
+    app: k8s-log-catcher
+    role: agent
+spec:
+  selector:
+    matchLabels:
+      app: k8s-log-catcher
+      role: agent
+  template:
+    metadata:
+      labels:
+        app: k8s-log-catcher
+        role: agent
+    spec:
+      serviceAccountName: k8s-log-catcher
+      tolerations:
+        - operator: Exists          # Berjalan di semua node termasuk master
+      containers:
+        - name: agent
+          image: ghcr.io/ordinary/k8s-log-catcher:latest # Ganti dengan nama image Anda
+          args: ["--mode=agent"]
+          env:
+            - name: LOG_CATCHER_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            # Retensi data per node (default: 7 hari / 168 jam)
+            - name: LOG_CATCHER_STORAGE_RETENTION
+              value: "168h"
+            # Batas maksimal ukuran disk per node (default: 5GB)
+            - name: LOG_CATCHER_STORAGE_MAX_DISK
+              value: "5GB"
+            # Port internal agent
+            - name: LOG_CATCHER_AGENT_PORT
+              value: "19489"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          ports:
+            - containerPort: 19489
+              name: http
+          volumeMounts:
+            # Baca file log container di host node (read-only)
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            # Simpan database BadgerDB lokal di disk node
+            - name: data
+              mountPath: /data/logcatcher
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 19489
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 19489
+            periodSeconds: 10
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+            type: Directory
+        - name: data
+          hostPath:
+            path: /var/lib/k8s-log-catcher
+            type: DirectoryOrCreate

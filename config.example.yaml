@@ -1,0 +1,54 @@
+# k8s-log-catcher configuration
+# All values can be overridden via environment variables (LOG_CATCHER_*)
+
+mode: agent  # agent | aggregator
+
+agent:
+  log_path: /var/log/containers
+
+  storage:
+    path: /data/logcatcher
+    retention: 168h          # 7 days — auto-delete older logs
+    max_disk: 5GB            # Hard limit — delete oldest when approaching
+    compression: snappy      # snappy | zstd | none
+    gc_interval: 5m          # Garbage collection interval
+
+  collector:
+    batch_size: 100          # Lines per batch write
+    batch_interval: 100ms    # Max wait before flush
+    max_goroutines: 50       # Max concurrent file tailers
+    rate_limit: 5000         # Max lines/sec per node
+    buffer_size: 4096        # Read buffer per file
+
+  exclude:
+    namespaces: []           # Namespaces to skip (e.g., ["kube-system"])
+    labels:
+      logging: "false"       # Skip pods with this label
+
+  api:
+    port: 19489              # Agent HTTP port (default: 19489)
+    grpc_port: 19490         # Agent gRPC port (reserved for future)
+
+aggregator:
+  dashboard:
+    port: 19488              # Dashboard HTTP port (default: 19488)
+    auth:
+      enabled: true          # Default aktif untuk keamanan
+      username: admin
+      password: "admin123"   # Ganti via env LOG_CATCHER_PASSWORD atau K8s Secret
+
+  discovery:
+    method: static           # static | kubernetes
+    # Static endpoints:
+    # endpoints:
+    #   - http://agent-node1:19489
+    #   - http://agent-node2:19489
+    #
+    # Kubernetes discovery:
+    # label_selector: "app=k8s-log-catcher,role=agent"
+
+  query:
+    timeout: 30s
+    max_results: 10000
+
+log_level: info              # debug | info | warn | error

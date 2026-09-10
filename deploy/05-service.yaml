@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-log-catcher
+  namespace: log-catcher
+  labels:
+    app: k8s-log-catcher
+spec:
+  type: ClusterIP
+  selector:
+    app: k8s-log-catcher
+    role: aggregator
+  ports:
+    - port: 19488
+      targetPort: 19488
+      name: dashboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-log-catcher-agents
+  namespace: log-catcher
+  labels:
+    app: k8s-log-catcher
+spec:
+  clusterIP: None
+  selector:
+    app: k8s-log-catcher
+    role: agent
+  ports:
+    - port: 19489
+      targetPort: 19489
+      name: http

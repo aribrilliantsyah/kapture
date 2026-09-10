@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Soft 3D macOS Drop Shadow -->
+    <filter id="macShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#1e1b4b" flood-opacity="0.32"/>
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+
+    <!-- App Squircle Gradient (Vibrant Sky Blue to Royal Indigo) -->
+    <linearGradient id="squircleBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4facfe"/>
+      <stop offset="35%" stop-color="#3b82f6"/>
+      <stop offset="70%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#4338ca"/>
+    </linearGradient>
+
+    <!-- Top Gloss Sheen -->
+    <linearGradient id="topSheen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="30%" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Bevel Rim -->
+    <linearGradient id="bevelBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.2"/>
+    </linearGradient>
+
+    <!-- White 3D Net Rim Shading -->
+    <linearGradient id="whiteRim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="60%" stop-color="#f1f5f9"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+
+    <!-- Net Handle Gradient -->
+    <linearGradient id="handleShaft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="50%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- Main Card Shading -->
+    <linearGradient id="logCard" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2c374d"/>
+      <stop offset="50%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#131c2e"/>
+    </linearGradient>
+
+    <!-- Secondary Card 1 (Periwinkle Blue) -->
+    <linearGradient id="cardBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+
+    <!-- Secondary Card 2 (Soft Lavender) -->
+    <linearGradient id="cardLavender" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c7d2fe"/>
+      <stop offset="100%" stop-color="#a5b4fc"/>
+    </linearGradient>
+
+    <!-- Mesh Cord 3D Tube Shading -->
+    <linearGradient id="cordGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="60%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Base Squircle Canvas with 3D Drop Shadow -->
+  <rect x="40" y="40" width="432" height="432" rx="100" ry="100" fill="url(#squircleBg)" filter="url(#macShadow)"/>
+  <rect x="40" y="40" width="432" height="432" rx="100" ry="100" fill="url(#squircleBg)"/>
+
+  <!-- Subtle Inner Ambient Lighting -->
+  <circle cx="200" cy="180" r="180" fill="#ffffff" opacity="0.12"/>
+  <circle cx="340" cy="360" r="160" fill="#1e1b4b" opacity="0.2"/>
+
+  <!-- ==================== LAYER 1: BACK CARDS ==================== -->
+  <!-- Backmost Lavender Card -->
+  <rect x="250" y="160" width="105" height="135" rx="18" fill="url(#cardLavender)" transform="rotate(10 250 160)" opacity="0.9"/>
+  <!-- Middle Soft Blue Card -->
+  <rect x="235" y="180" width="115" height="140" rx="18" fill="url(#cardBlue)" transform="rotate(4 235 180)" opacity="0.95"/>
+  <!-- Middle Card Lines -->
+  <g transform="rotate(4 235 180)" opacity="0.45" stroke="#1e293b" stroke-width="4" stroke-linecap="round">
+    <line x1="255" y1="215" x2="305" y2="215"/>
+    <line x1="255" y1="230" x2="330" y2="230"/>
+    <line x1="255" y1="245" x2="295" y2="245"/>
+  </g>
+
+  <!-- ==================== LAYER 2: MAIN "LOG" CARD ==================== -->
+  <!-- Main Dark Slate Rounded Card -->
+  <g transform="translate(230, 255) rotate(-12)">
+    <!-- Card Shadow inside net -->
+    <rect x="-65" y="-85" width="130" height="175" rx="22" fill="#0f172a" opacity="0.3" transform="translate(4, 8)"/>
+    <!-- Card Body -->
+    <rect x="-65" y="-85" width="130" height="175" rx="22" fill="url(#logCard)"/>
+    <!-- Subtle Border Bevel -->
+    <rect x="-64" y="-84" width="128" height="173" rx="21" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1.5"/>
+
+    <!-- Bold "LOG" Header -->
+    <text x="-44" y="-50" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-weight="800" font-size="21" letter-spacing="0.5">LOG</text>
+
+    <!-- Code / Log Stream Lines -->
+    <!-- Line 1 (White text) -->
+    <line x1="-44" y1="-26" x2="16" y2="-26" stroke="#f1f5f9" stroke-width="6.5" stroke-linecap="round"/>
+    <line x1="26" y1="-26" x2="42" y2="-26" stroke="#94a3b8" stroke-width="6.5" stroke-linecap="round" opacity="0.6"/>
+
+    <!-- Line 2 (Cyan highlight line) -->
+    <line x1="-44" y1="-8" x2="32" y2="-8" stroke="#38bdf8" stroke-width="6.5" stroke-linecap="round"/>
+
+    <!-- Line 3 (Mint Green success line) -->
+    <line x1="-44" y1="10" x2="14" y2="10" stroke="#34d399" stroke-width="6.5" stroke-linecap="round"/>
+
+    <!-- Line 4 (Grey/dim text) -->
+    <line x1="-44" y1="28" x2="38" y2="28" stroke="#64748b" stroke-width="6.5" stroke-linecap="round" opacity="0.8"/>
+
+    <!-- Line 5 (Short bottom line) -->
+    <line x1="-44" y1="46" x2="-8" y2="46" stroke="#475569" stroke-width="6.5" stroke-linecap="round" opacity="0.8"/>
+  </g>
+
+  <!-- ==================== LAYER 3: 3D WHITE NET BASKET ==================== -->
+  <!-- Net Mesh Strands (Cords hanging from the rim) -->
+  <g fill="none" stroke="#e2e8f0" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- Longitudinal Mesh Strands (Tali Vertikal Melengkung ke Bawah) -->
+    <path d="M 180 230 C 180 290 200 340 240 375" stroke-width="5" stroke="#cbd5e1"/>
+    <path d="M 215 250 C 215 310 230 355 255 382" stroke-width="5"/>
+    <path d="M 255 260 C 255 315 260 365 272 380" stroke-width="5"/>
+    <path d="M 295 245 C 295 305 285 360 272 380" stroke-width="5"/>
+    <path d="M 325 215 C 320 280 295 345 272 380" stroke-width="5" stroke="#cbd5e1"/>
+
+    <!-- Latitudinal Intersecting Loops (Tali Horizontal Melintang) -->
+    <path d="M 188 275 Q 255 315 320 255" stroke-width="5"/>
+    <path d="M 205 315 Q 260 355 305 300" stroke-width="5"/>
+    <path d="M 225 352 Q 262 382 285 348" stroke-width="5"/>
+
+    <!-- Diagonal Knots / Cross Connectors -->
+    <path d="M 188 275 L 215 315 L 255 352 L 272 380" stroke-width="4.5" stroke="#f8fafc"/>
+    <path d="M 320 255 L 290 300 L 260 350 L 240 375" stroke-width="4.5" stroke="#f8fafc"/>
+  </g>
+
+  <!-- Spherical Knots / Beads at Mesh Intersections (Manik-Manik Simpul Jaring) -->
+  <g fill="#ffffff" filter="drop-shadow(0 2px 3px rgba(15,23,42,0.25))">
+    <!-- Row 1 Nodes -->
+    <circle cx="188" cy="275" r="5"/>
+    <circle cx="225" cy="295" r="5.5"/>
+    <circle cx="265" cy="302" r="5.5"/>
+    <circle cx="300" cy="280" r="5"/>
+
+    <!-- Row 2 Nodes -->
+    <circle cx="205" cy="315" r="5"/>
+    <circle cx="242" cy="335" r="5.5"/>
+    <circle cx="280" cy="328" r="5.5"/>
+    <circle cx="305" cy="300" r="5"/>
+
+    <!-- Row 3 Nodes -->
+    <circle cx="225" cy="352" r="4.5"/>
+    <circle cx="258" cy="368" r="5"/>
+    <circle cx="285" cy="348" r="4.5"/>
+
+    <!-- Bottom Apex Knot -->
+    <circle cx="255" cy="382" r="6"/>
+  </g>
+
+  <!-- ==================== LAYER 4: WHITE 3D HOOP & HANDLE ==================== -->
+  <g id="hoop-and-handle">
+    <!-- Net Handle Extends Top-Right -->
+    <g transform="rotate(-36 325 185)">
+      <!-- Main Grip / Shaft (Dark Graphite) -->
+      <rect x="335" y="172" width="75" height="24" rx="12" fill="url(#handleShaft)"/>
+      <rect x="337" y="174" width="71" height="20" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1.5"/>
+
+      <!-- White Socket Collar (Sambungan Gagang) -->
+      <rect x="315" y="170" width="24" height="28" rx="7" fill="url(#whiteRim)"/>
+      <rect x="317" y="172" width="20" height="24" rx="5" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+    </g>
+
+    <!-- Thick 3D White Net Hoop (Mulut Jaring Melingkar Tebal) -->
+    <!-- Hoop Drop Shadow onto cards -->
+    <ellipse cx="255" cy="225" rx="88" ry="46" fill="none" stroke="#0f172a" stroke-width="18" opacity="0.25" transform="rotate(-18 255 225) translate(0, 8)"/>
+
+    <!-- Main Solid White 3D Torus Hoop -->
+    <ellipse cx="255" cy="225" rx="86" ry="44" fill="none" stroke="url(#whiteRim)" stroke-width="16" transform="rotate(-18 255 225)"/>
+
+    <!-- Top Specular Highlight on Hoop -->
+    <ellipse cx="255" cy="223" rx="83" ry="41" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-dasharray="140 180" transform="rotate(-18 255 225)"/>
+
+    <!-- Inner Rim Depth Shadow -->
+    <ellipse cx="255" cy="226" rx="80" ry="38" fill="none" stroke="#94a3b8" stroke-width="1.5" opacity="0.5" transform="rotate(-18 255 225)"/>
+  </g>
+
+  <!-- ==================== LAYER 5: MACOS FINISHING ==================== -->
+  <!-- Top Glass Highlight Sheen -->
+  <path d="M 40 140 C 40 85 85 40 140 40 L 372 40 C 427 40 472 85 472 140 C 472 215 390 225 256 225 C 122 225 40 215 40 140 Z" fill="url(#topSheen)"/>
+
+  <!-- Outer Squircle Bevel Rim -->
+  <rect x="40" y="40" width="432" height="432" rx="100" ry="100" fill="none" stroke="url(#bevelBorder)" stroke-width="2.5"/>
+</svg>

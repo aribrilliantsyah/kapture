@@ -1,0 +1,7 @@
+bin/
+testdata/db/
+testdata/containers/
+*.exe
+*.dll
+*.so
+*.dylib
