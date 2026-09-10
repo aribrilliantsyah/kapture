@@ -1,7 +1,8 @@
-.PHONY: build run-agent run-aggregator test clean docker
+.PHONY: build run-agent run-aggregator test clean docker docker-push testdata
 
 BINARY=logcatcher
 MODULE=github.com/ordinary/k8s-log-catcher
+VERSION ?= latest
 
 build:
 	CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/$(BINARY) ./cmd/logcatcher
@@ -25,7 +26,10 @@ clean:
 	rm -rf bin/ testdata/db/
 
 docker:
-	docker build -t k8s-log-catcher:latest .
+	docker build -t kapture:latest .
+
+docker-push:
+	@./scripts/build-and-push.sh $(VERSION)
 
 # Generate test log data
 testdata:
