@@ -118,6 +118,19 @@ if [[ "$UPDATE_MANIFESTS" =~ ^[Yy]$ ]]; then
         echo -e "${GREEN}✓ Berhasil update ${AGG_FILE}${NC}"
     fi
 
+    # Sinkronkan secret imagePullSecrets jika kubectl tersedia
+    if command -v kubectl >/dev/null 2>&1 && [ -n "$TOKEN" ]; then
+        echo -e "\n${BLUE}Menyiapkan secret penarik image (imagePullSecret) di cluster...${NC}"
+        kubectl create namespace kapture --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1 || true
+        kubectl create secret docker-registry kapture-registry-secret \
+          --namespace=kapture \
+          --docker-server="$REGISTRY" \
+          --docker-username="$USERNAME" \
+          --docker-password="$TOKEN" \
+          --dry-run=client -o yaml | kubectl apply -f -
+        echo -e "${GREEN}✓ Secret 'kapture-registry-secret' berhasil disinkronkan ke namespace 'kapture'!${NC}"
+    fi
+
     echo -e "\n${CYAN}Terapkan manifest ke Kubernetes dengan perintah:${NC}"
     echo -e "  ${YELLOW}kubectl apply -f deploy/${NC}\n"
 fi
