@@ -8,7 +8,7 @@
 
 Penangkap dan pengelola log Kubernetes mandiri, ultra-ringan, dan persisten. Menyimpan riwayat log container berhari-hari tanpa membebani server dan tanpa ketergantungan stack berat (ELK/Loki), dilengkapi dashboard bawaan yang responsif serta kendali reset instan.
 
-[![Go Version](https://img.shields.io/badge/Go-1.23%2B-00ADD8?style=flat&logo=go&logoColor=white)](https://go.dev)
+[![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat&logo=go&logoColor=white)](https://go.dev)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-CRI--Native-326CE5?style=flat&logo=kubernetes&logoColor=white)](https://kubernetes.io)
 [![Storage](https://img.shields.io/badge/Engine-BadgerDB%20v4-7952B3?style=flat)](https://github.com/dgraph-io/badger)
 [![Binary Size](https://img.shields.io/badge/Binary-~13%20MB-success?style=flat)](#)
@@ -206,7 +206,7 @@ Setelah setup selesai, setiap kali mengakses dashboard Anda akan melewati alur m
 Anda dapat menguji Kapture secara penuh di komputer lokal tanpa perlu cluster Kubernetes asli.
 
 ### Prasyarat
-- **Go 1.23+** terpasang
+- **Go 1.26+** terpasang
 - Sistem operasi Linux atau macOS
 
 ### 1. Buat Data Simulasi Container Log
@@ -317,7 +317,7 @@ Semua opsi konfigurasi dapat dikontrol lewat berkas `config.yaml` maupun variabe
 
 | Komponen | Pustaka / Versi | Alasan Pemilihan |
 |---|---|---|
-| **Bahasa Utama** | Go **1.23+** | Kompilasi single binary, performa konkurensi goroutine tinggi, ekosistem native K8s |
+| **Bahasa Utama** | Go **1.26+** | Kompilasi single binary, performa konkurensi goroutine tinggi, ekosistem native K8s |
 | **Engine Basis Data** | BadgerDB **v4.9** | Key-Value store embedded murni Go (tanpa CGO), cepat untuk operasi batch write, dilengkapi kompresi Snappy bawaan & TTL |
 | **Pendeteksi Berkas** | `fsnotify` **v1.10** | Memanfaatkan *inotify* kernel Linux untuk mendeteksi perubahan log seketika tanpa *polling loop* |
 | **Frontend UI** | HTML5, CSS3 kustom, Vanilla JS | Berkas statis di-embed ke dalam binary melalui `go:embed`. Membuka dashboard instan tanpa lag dan tanpa build-step Node yang rumit |

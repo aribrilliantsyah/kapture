@@ -10,7 +10,7 @@ Kapture mengadopsi arsitektur **Single Container Image**. Anda **tidak perlu** m
 
 ```
                   ┌───────────────────────────────┐
-                  │   Dockerfile (Go 1.23 Multi)  │
+                  │   Dockerfile (Go 1.26 Multi)  │
                   └───────────────┬───────────────┘
                                   │ docker build
                                   ▼
