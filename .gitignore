@@ -5,3 +5,9 @@ testdata/containers/
 *.dll
 *.so
 *.dylib
+
+# Local Registry Credentials
+scripts/registry.conf
+.registry.conf
+*.conf
+!*.conf.example

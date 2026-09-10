@@ -38,7 +38,27 @@ Pastikan salah satu perkakas kontainer berikut telah terpasang di komputer/mesin
 
 ---
 
-## 3. Langkah Cepat (Quick Start)
+## 3. Langkah Cepat (Quick Start Otomatis dengan Script)
+
+Tersedia skrip otomatis yang sudah terintegrasi dengan GitLab Container Registry Anda:
+
+```bash
+# 1. Salin file konfigurasi kredensial (hanya sekali di awal)
+cp scripts/registry.conf.example scripts/registry.conf
+
+# 2. Buka scripts/registry.conf dan masukkan token GitLab Anda:
+#    REGISTRY_TOKEN="glpat-xxxxxxxxxxxxxxxxxxxx"
+
+# 3. Jalankan skrip build & push (otomatis login, build, tag, & push):
+./scripts/build-and-push.sh v1.0.0
+# atau: make docker-push VERSION=v1.0.0
+```
+
+> 🔒 Berkas `scripts/registry.conf` sudah didaftarkan di `.gitignore` sehingga token Anda tidak akan pernah ter-*commit* ke Git repository.
+
+---
+
+## 4. Langkah Manual (CLI Standar)
 
 ```bash
 # 1. Masuk ke direktori project
@@ -56,7 +76,7 @@ docker push <NAMA_REGISTRY>/<USERNAME_ATAU_PROJECT>/kapture:latest
 
 ---
 
-## 4. Panduan Berbagai Container Registry
+## 5. Panduan Berbagai Container Registry
 
 ### A. Docker Hub (`docker.io`)
 

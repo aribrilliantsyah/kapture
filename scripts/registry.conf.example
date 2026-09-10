@@ -1,0 +1,24 @@
+# ==============================================================================
+# GitLab Container Registry Configuration
+#
+# Salin berkas ini ke 'scripts/registry.conf' lalu isi token Anda:
+#   cp scripts/registry.conf.example scripts/registry.conf
+#
+# Berkas 'scripts/registry.conf' otomatis di-ignore oleh Git agar aman.
+# ==============================================================================
+
+# Alamat GitLab Container Registry
+REGISTRY="registry.e-gitlab.prodak.id"
+
+# Project / Group path di GitLab
+GROUP="bpd-diy1/va"
+
+# Nama Image Repository
+IMAGE_NAME="kapture"
+
+# Username akun GitLab Anda
+REGISTRY_USERNAME="aribrilliantsyah"
+
+# Personal Access Token / Deploy Token dengan scope 'read_registry' & 'write_registry'
+# Buat di: GitLab -> User Settings -> Access Tokens (atau Project Settings -> Repository -> Deploy Tokens)
+REGISTRY_TOKEN="glpat-xxxxxxxxxxxxxxxxxxxx"
