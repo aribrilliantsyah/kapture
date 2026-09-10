@@ -800,8 +800,7 @@ k8s-log-catcher/
 │   ├── 02-secret.yaml
 │   ├── 03-agent-daemonset.yaml
 │   ├── 04-aggregator-deployment.yaml
-│   ├── 05-service.yaml
-│   └── kustomization.yaml
+│   └── 05-service.yaml
 ├── Dockerfile
 ├── Makefile
 ├── go.mod

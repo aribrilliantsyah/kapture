@@ -144,16 +144,12 @@ Manifest Kapture telah **dipisah secara modular** per tanggung jawab komponen ag
 | `03-agent-daemonset.yaml` | `DaemonSet` | Pengumpul log di setiap node host |
 | `04-aggregator-deployment.yaml` | `Deployment` | Dashboard web & router query |
 | `05-service.yaml` | `Service` | Endpoint akses dashboard & headless discovery |
-| `kustomization.yaml` | `Kustomization` | Orkestrasi deklaratif Kustomize |
 
 Cukup sesuaikan nama image di `03-agent-daemonset.yaml` dan `04-aggregator-deployment.yaml`, lalu terapkan sekaligus dari workstation/master:
 
 ```bash
 # Terapkan seluruh direktori deploy (otomatis terurut):
 kubectl apply -f deploy/
-
-# Atau via Kustomize:
-kubectl apply -k deploy/
 ```
 
 Verifikasi pod berjalan:
@@ -357,8 +353,7 @@ k8s-log-catcher/
 │   ├── 02-secret.yaml              # Kredensial awal admin
 │   ├── 03-agent-daemonset.yaml     # Manifest DaemonSet agent per node
 │   ├── 04-aggregator-deployment.yaml # Manifest Deployment aggregator
-│   ├── 05-service.yaml             # Service dashboard & agent discovery
-│   └── kustomization.yaml          # Konfigurasi Kustomize bawaan kubectl
+│   └── 05-service.yaml             # Service dashboard & agent discovery
 ├── build/
 │   └── appicon.svg                 # Ikon vektor aplikasi bergaya macOS
 ├── scripts/

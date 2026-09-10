@@ -21,7 +21,7 @@ spec:
       serviceAccountName: k8s-log-catcher
       containers:
         - name: aggregator
-          image: ghcr.io/ordinary/k8s-log-catcher:latest # Ganti dengan nama image Anda
+          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.0
           args: ["--mode=aggregator"]
           env:
             # Aggregator mendeteksi agent lewat K8s API
