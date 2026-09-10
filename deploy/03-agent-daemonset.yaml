@@ -19,7 +19,7 @@ spec:
     spec:
       serviceAccountName: kapture
       imagePullSecrets:
-        - name: kapture-registry-secret
+        - name: gitlab-auth
       tolerations:
         - operator: Exists          # Berjalan di semua node termasuk master
       containers:

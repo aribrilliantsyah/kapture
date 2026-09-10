@@ -122,13 +122,14 @@ if [[ "$UPDATE_MANIFESTS" =~ ^[Yy]$ ]]; then
     if command -v kubectl >/dev/null 2>&1 && [ -n "$TOKEN" ]; then
         echo -e "\n${BLUE}Menyiapkan secret penarik image (imagePullSecret) di cluster...${NC}"
         kubectl create namespace kapture --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1 || true
-        kubectl create secret docker-registry kapture-registry-secret \
+        # Sinkronkan secret imagePullSecrets dengan nama 'gitlab-auth'
+        kubectl create secret docker-registry gitlab-auth \
           --namespace=kapture \
           --docker-server="$REGISTRY" \
           --docker-username="$USERNAME" \
           --docker-password="$TOKEN" \
           --dry-run=client -o yaml | kubectl apply -f -
-        echo -e "${GREEN}✓ Secret 'kapture-registry-secret' berhasil disinkronkan ke namespace 'kapture'!${NC}"
+        echo -e "${GREEN}✓ Secret 'gitlab-auth' berhasil disinkronkan ke namespace 'kapture'!${NC}"
     fi
 
     echo -e "\n${CYAN}Terapkan manifest ke Kubernetes dengan perintah:${NC}"

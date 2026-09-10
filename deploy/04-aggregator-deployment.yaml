@@ -20,7 +20,7 @@ spec:
     spec:
       serviceAccountName: kapture
       imagePullSecrets:
-        - name: kapture-registry-secret
+        - name: gitlab-auth
       containers:
         - name: aggregator
           image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.1
