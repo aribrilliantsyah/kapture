@@ -1,42 +1,42 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: k8s-log-catcher-agent
-  namespace: log-catcher
+  name: kapture-agent
+  namespace: kapture
   labels:
-    app: k8s-log-catcher
+    app: kapture
     role: agent
 spec:
   selector:
     matchLabels:
-      app: k8s-log-catcher
+      app: kapture
       role: agent
   template:
     metadata:
       labels:
-        app: k8s-log-catcher
+        app: kapture
         role: agent
     spec:
-      serviceAccountName: k8s-log-catcher
+      serviceAccountName: kapture
       tolerations:
         - operator: Exists          # Berjalan di semua node termasuk master
       containers:
         - name: agent
-          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.0
+          image: ghcr.io/ordinary/kapture:latest # Ganti dengan nama image Anda
           args: ["--mode=agent"]
           env:
-            - name: LOG_CATCHER_NODE_NAME
+            - name: KAPTURE_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
             # Retensi data per node (default: 7 hari / 168 jam)
-            - name: LOG_CATCHER_STORAGE_RETENTION
+            - name: KAPTURE_STORAGE_RETENTION
               value: "168h"
             # Batas maksimal ukuran disk per node (default: 5GB)
-            - name: LOG_CATCHER_STORAGE_MAX_DISK
+            - name: KAPTURE_STORAGE_MAX_DISK
               value: "5GB"
-            # Port internal agent
-            - name: LOG_CATCHER_AGENT_PORT
+            # Port internal agent (default: 19489)
+            - name: KAPTURE_AGENT_PORT
               value: "19489"
           resources:
             requests:
@@ -55,7 +55,7 @@ spec:
               readOnly: true
             # Simpan database BadgerDB lokal di disk node
             - name: data
-              mountPath: /data/logcatcher
+              mountPath: /data/kapture
           livenessProbe:
             httpGet:
               path: /healthz
@@ -73,5 +73,5 @@ spec:
             type: Directory
         - name: data
           hostPath:
-            path: /var/lib/k8s-log-catcher
+            path: /var/lib/kapture
             type: DirectoryOrCreate

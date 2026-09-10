@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: log-catcher
+  name: kapture
   labels:
     app.kubernetes.io/name: kapture
-    app.kubernetes.io/part-of: log-catcher
+    app.kubernetes.io/part-of: kapture

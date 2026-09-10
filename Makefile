@@ -1,23 +1,23 @@
 .PHONY: build run-agent run-aggregator test clean docker docker-push testdata
 
-BINARY=logcatcher
+BINARY=kapture
 MODULE=github.com/ordinary/k8s-log-catcher
 VERSION ?= latest
 
 build:
-	CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/$(BINARY) ./cmd/logcatcher
+	CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/$(BINARY) ./cmd/kapture
 
 run-agent:
-	LOG_CATCHER_MODE=agent \
-	LOG_CATCHER_LOG_PATH=./testdata/containers \
-	LOG_CATCHER_STORAGE_PATH=./testdata/db \
-	go run ./cmd/logcatcher --mode=agent
+	KAPTURE_MODE=agent \
+	KAPTURE_LOG_PATH=./testdata/containers \
+	KAPTURE_STORAGE_PATH=./testdata/db \
+	go run ./cmd/kapture --mode=agent
 
 run-aggregator:
-	LOG_CATCHER_MODE=aggregator \
-	LOG_CATCHER_DISCOVERY_METHOD=static \
-	LOG_CATCHER_DISCOVERY_ENDPOINTS=http://localhost:19489 \
-	go run ./cmd/logcatcher --mode=aggregator
+	KAPTURE_MODE=aggregator \
+	KAPTURE_DISCOVERY_METHOD=static \
+	KAPTURE_DISCOVERY_ENDPOINTS=http://localhost:19489 \
+	go run ./cmd/kapture --mode=aggregator
 
 test:
 	go test ./... -v -race

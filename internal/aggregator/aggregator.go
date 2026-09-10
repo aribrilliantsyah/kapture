@@ -34,7 +34,7 @@ func (a *Aggregator) Run() error {
 		disc = discovery.NewKubernetes(discovery.K8sOptions{
 			Namespace:       a.cfg.Aggregator.Discovery.Namespace,
 			LabelSelector:   a.cfg.Aggregator.Discovery.LabelSelector,
-			HeadlessService: "k8s-log-catcher-agents",
+			HeadlessService: "kapture-agents",
 			AgentPort:       a.cfg.Agent.API.Port,
 			StaticEndpoints: a.cfg.Aggregator.Discovery.Endpoints,
 		})
@@ -48,7 +48,7 @@ func (a *Aggregator) Run() error {
 	// Setup Auth Manager
 	authFile := a.cfg.Aggregator.Dashboard.Auth.FilePath
 	if authFile == "" {
-		authFile = "/data/logcatcher/auth.json"
+		authFile = "/data/kapture/auth.json"
 	}
 	authMgr, err := auth.NewManager(authFile, a.cfg.Aggregator.Dashboard.Auth.Enabled)
 	if err != nil {

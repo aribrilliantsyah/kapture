@@ -220,7 +220,7 @@ Jalankan perintah berikut di cluster Kubernetes:
 
 ```bash
 kubectl create secret docker-registry kapture-regcred \
-  --namespace=log-catcher \
+  --namespace=kapture \
   --docker-server=<NAMA_REGISTRY> \
   --docker-username=<USERNAME> \
   --docker-password=<PASSWORD_ATAU_TOKEN> \
@@ -235,7 +235,7 @@ Tambahkan blok `imagePullSecrets` pada bagian `spec.template.spec` di DaemonSet 
 spec:
   template:
     spec:
-      serviceAccountName: k8s-log-catcher
+      serviceAccountName: kapture
       imagePullSecrets:
         - name: kapture-regcred    # <-- Tambahkan ini
       containers:

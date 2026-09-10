@@ -138,7 +138,7 @@ Manifest Kapture telah **dipisah secara modular** per tanggung jawab komponen ag
 
 | Berkas | Jenis Sumber Daya | Fungsi |
 |---|---|---|
-| `00-namespace.yaml` | `Namespace` | Ruang isolasi `log-catcher` |
+| `00-namespace.yaml` | `Namespace` | Ruang isolasi `kapture` |
 | `01-rbac.yaml` | `ClusterRole`, `Binding` | Izin akses membaca metadata pod/namespace |
 | `02-secret.yaml` | `Secret` | Kredensial awal admin |
 | `03-agent-daemonset.yaml` | `DaemonSet` | Pengumpul log di setiap node host |
@@ -155,16 +155,16 @@ kubectl apply -f deploy/
 Verifikasi pod berjalan:
 
 ```bash
-kubectl get pods -n log-catcher -o wide
+kubectl get pods -n kapture -o wide
 ```
 
 Hasilnya akan menampilkan **1 agent di setiap node** dan **1 aggregator pod**:
 ```text
-NAME                                         READY   STATUS    NODE
-k8s-log-catcher-agent-4j2x1                  1/1     Running   master-node
-k8s-log-catcher-agent-9b8vc                  1/1     Running   worker-node-1
-k8s-log-catcher-agent-z7q1a                  1/1     Running   worker-node-2
-k8s-log-catcher-aggregator-5d8f9976f-w2k8m   1/1     Running   worker-node-1
+NAME                                  READY   STATUS    NODE
+kapture-agent-4j2x1                   1/1     Running   master-node
+kapture-agent-9b8vc                   1/1     Running   worker-node-1
+kapture-agent-z7q1a                   1/1     Running   worker-node-2
+kapture-aggregator-5d8f9976f-w2k8m    1/1     Running   worker-node-1
 ```
 
 ### Langkah 3: Akses Dashboard & Setup 2FA (Google Authenticator)
@@ -172,7 +172,7 @@ k8s-log-catcher-aggregator-5d8f9976f-w2k8m   1/1     Running   worker-node-1
 Lakukan *port-forwarding* ke service aggregator:
 
 ```bash
-kubectl port-forward -n log-catcher svc/k8s-log-catcher 19488:19488
+kubectl port-forward -n kapture svc/kapture 19488:19488
 ```
 
 Buka peramban Anda di: **[`http://localhost:19488`](http://localhost:19488)**
@@ -326,7 +326,7 @@ Semua opsi konfigurasi dapat dikontrol lewat berkas `config.yaml` maupun variabe
 ```
 k8s-log-catcher/
 ├── cmd/
-│   └── logcatcher/
+│   └── kapture/
 │       └── main.go                 # Entrypoint aplikasi (mode switch)
 ├── internal/
 │   ├── agent/                      # Logika pengumpul log pada node
@@ -348,7 +348,7 @@ k8s-log-catcher/
 │   ├── embed.go                    # Direktif go:embed untuk bundling UI
 │   └── static/                     # Aset dashboard web (HTML, CSS, JS, Icon)
 ├── deploy/
-│   ├── 00-namespace.yaml           # Namespace isolasi log-catcher
+│   ├── 00-namespace.yaml           # Namespace isolasi kapture
 │   ├── 01-rbac.yaml                # Izin ClusterRole & ServiceAccount
 │   ├── 02-secret.yaml              # Kredensial awal admin
 │   ├── 03-agent-daemonset.yaml     # Manifest DaemonSet agent per node

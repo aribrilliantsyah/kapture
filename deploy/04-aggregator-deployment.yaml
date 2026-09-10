@@ -1,47 +1,50 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: k8s-log-catcher-aggregator
-  namespace: log-catcher
+  name: kapture-aggregator
+  namespace: kapture
   labels:
-    app: k8s-log-catcher
+    app: kapture
     role: aggregator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: k8s-log-catcher
+      app: kapture
       role: aggregator
   template:
     metadata:
       labels:
-        app: k8s-log-catcher
+        app: kapture
         role: aggregator
     spec:
-      serviceAccountName: k8s-log-catcher
+      serviceAccountName: kapture
       containers:
         - name: aggregator
-          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.0
+          image: ghcr.io/ordinary/kapture:latest # Ganti dengan nama image Anda
           args: ["--mode=aggregator"]
           env:
             # Aggregator mendeteksi agent lewat K8s API
-            - name: LOG_CATCHER_DISCOVERY_METHOD
+            - name: KAPTURE_DISCOVERY_METHOD
               value: kubernetes
-            # Port dashboard
-            - name: LOG_CATCHER_DASHBOARD_PORT
+            - name: KAPTURE_DISCOVERY_NAMESPACE
+              value: kapture
+            - name: KAPTURE_DISCOVERY_LABEL_SELECTOR
+              value: "app=kapture,role=agent"
+            - name: KAPTURE_DASHBOARD_PORT
               value: "19488"
             # Autentikasi dashboard & 2FA (diambil dari Secret)
-            - name: LOG_CATCHER_AUTH_ENABLED
+            - name: KAPTURE_AUTH_ENABLED
               value: "true"
-            - name: LOG_CATCHER_USERNAME
+            - name: KAPTURE_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: k8s-log-catcher-auth
+                  name: kapture-auth
                   key: username
-            - name: LOG_CATCHER_PASSWORD
+            - name: KAPTURE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: k8s-log-catcher-auth
+                  name: kapture-auth
                   key: password
           resources:
             requests:
@@ -56,7 +59,7 @@ spec:
           volumeMounts:
             # Volume untuk menyimpan auth.json & konfigurasi 2FA
             - name: auth-data
-              mountPath: /data/logcatcher
+              mountPath: /data/kapture
           livenessProbe:
             httpGet:
               path: /api/v1/health
@@ -65,5 +68,5 @@ spec:
       volumes:
         - name: auth-data
           hostPath:
-            path: /var/lib/k8s-log-catcher-aggregator
+            path: /var/lib/kapture-aggregator
             type: DirectoryOrCreate

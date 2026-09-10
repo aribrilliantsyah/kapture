@@ -1,5 +1,5 @@
-# k8s-log-catcher configuration
-# All values can be overridden via environment variables (LOG_CATCHER_*)
+# Kapture configuration
+# All values can be overridden via environment variables (KAPTURE_* or LOG_CATCHER_*)
 
 mode: agent  # agent | aggregator
 
@@ -7,7 +7,7 @@ agent:
   log_path: /var/log/containers
 
   storage:
-    path: /data/logcatcher
+    path: /data/kapture
     retention: 168h          # 7 days — auto-delete older logs
     max_disk: 5GB            # Hard limit — delete oldest when approaching
     compression: snappy      # snappy | zstd | none
@@ -33,9 +33,10 @@ aggregator:
   dashboard:
     port: 19488              # Dashboard HTTP port (default: 19488)
     auth:
-      enabled: true          # Default aktif untuk keamanan
+      enabled: true          # Default aktif dengan wizard setup 2FA (Google Authenticator)
+      file_path: /data/kapture/auth.json
       username: admin
-      password: "admin123"   # Ganti via env LOG_CATCHER_PASSWORD atau K8s Secret
+      password: ""           # Set via env: KAPTURE_PASSWORD
 
   discovery:
     method: static           # static | kubernetes
@@ -45,7 +46,9 @@ aggregator:
     #   - http://agent-node2:19489
     #
     # Kubernetes discovery:
-    # label_selector: "app=k8s-log-catcher,role=agent"
+    # namespace: "kapture"
+    # label_selector: "app=kapture,role=agent"
+    # headless_service: "kapture-agents"
 
   query:
     timeout: 30s

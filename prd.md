@@ -571,18 +571,18 @@ kubectl apply -f deploy/
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: log-catcher
+  name: kapture
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: k8s-log-catcher
-  namespace: log-catcher
+  name: kapture
+  namespace: kapture
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: k8s-log-catcher
+  name: kapture
 rules:
   - apiGroups: [""]
     resources: ["pods", "namespaces"]
@@ -591,15 +591,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: k8s-log-catcher
+  name: kapture
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: k8s-log-catcher
+  name: kapture
 subjects:
   - kind: ServiceAccount
-    name: k8s-log-catcher
-    namespace: log-catcher
+    name: kapture
+    namespace: kapture
 ```
 
 **DaemonSet (Agent):**
@@ -607,25 +607,28 @@ subjects:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: k8s-log-catcher-agent
-  namespace: log-catcher
+  name: kapture-agent
+  namespace: kapture
+  labels:
+    app: kapture
+    role: agent
 spec:
   selector:
     matchLabels:
-      app: k8s-log-catcher
+      app: kapture
       role: agent
   template:
     metadata:
       labels:
-        app: k8s-log-catcher
+        app: kapture
         role: agent
     spec:
-      serviceAccountName: k8s-log-catcher
+      serviceAccountName: kapture
       tolerations:
         - operator: Exists
       containers:
         - name: agent
-          image: ghcr.io/user/k8s-log-catcher:latest
+          image: ghcr.io/user/kapture:latest
           args: ["--mode=agent"]
           resources:
             requests:
@@ -642,7 +645,7 @@ spec:
               mountPath: /var/log
               readOnly: true
             - name: data
-              mountPath: /data/logcatcher
+              mountPath: /data/kapture
           livenessProbe:
             httpGet:
               path: /healthz
@@ -653,7 +656,7 @@ spec:
             path: /var/log
         - name: data
           hostPath:
-            path: /var/lib/k8s-log-catcher
+            path: /var/lib/kapture
             type: DirectoryOrCreate
 ```
 
@@ -662,24 +665,24 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: k8s-log-catcher-aggregator
-  namespace: log-catcher
+  name: kapture-aggregator
+  namespace: kapture
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: k8s-log-catcher
+      app: kapture
       role: aggregator
   template:
     metadata:
       labels:
-        app: k8s-log-catcher
+        app: kapture
         role: aggregator
     spec:
-      serviceAccountName: k8s-log-catcher
+      serviceAccountName: kapture
       containers:
         - name: aggregator
-          image: ghcr.io/user/k8s-log-catcher:latest
+          image: ghcr.io/user/kapture:latest
           args: ["--mode=aggregator"]
           resources:
             requests:
@@ -694,12 +697,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: k8s-log-catcher
-  namespace: log-catcher
+  name: kapture
+  namespace: kapture
 spec:
   type: ClusterIP
   selector:
-    app: k8s-log-catcher
+    app: kapture
     role: aggregator
   ports:
     - port: 19488

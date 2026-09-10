@@ -50,7 +50,7 @@ type Manager struct {
 // NewManager creates a new Auth Manager.
 func NewManager(filePath string, enabled bool) (*Manager, error) {
 	if filePath == "" {
-		filePath = "/data/logcatcher/auth.json"
+		filePath = "/data/kapture/auth.json"
 	}
 
 	// Test if directory is writable, fallback to local path if not

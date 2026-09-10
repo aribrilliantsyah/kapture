@@ -99,7 +99,7 @@ func DefaultConfig() *Config {
 		Agent: AgentConfig{
 			LogPath: "/var/log/containers",
 			Storage: StorageConfig{
-				Path:        "/data/logcatcher",
+				Path:        "/data/kapture",
 				Retention:   7 * 24 * time.Hour, // 168h
 				MaxDisk:     5 * 1024 * 1024 * 1024, // 5GB
 				Compression: "snappy",
@@ -126,15 +126,15 @@ func DefaultConfig() *Config {
 				Port: 19488,
 				Auth: AuthConfig{
 					Enabled:  true,
-					FilePath: "/data/logcatcher/auth.json",
+					FilePath: "/data/kapture/auth.json",
 					Username: "admin",
 					Password: "",
 				},
 			},
 			Discovery: DiscoveryConfig{
 				Method:        "static",
-				LabelSelector: "app=k8s-log-catcher,role=agent",
-				Namespace:     "log-catcher",
+				LabelSelector: "app=kapture,role=agent",
+				Namespace:     "kapture",
 			},
 			Query: QueryConfig{
 				Timeout:    30 * time.Second,
@@ -144,74 +144,81 @@ func DefaultConfig() *Config {
 	}
 }
 
-// LoadFromEnv overrides config values from environment variables.
+// LoadFromEnv overrides config values from environment variables (supports KAPTURE_* and LOG_CATCHER_*).
 func (c *Config) LoadFromEnv() {
-	if v := os.Getenv("LOG_CATCHER_MODE"); v != "" {
+	if v := getEnv("KAPTURE_MODE", "LOG_CATCHER_MODE"); v != "" {
 		c.Mode = v
 	}
-	if v := os.Getenv("LOG_CATCHER_LOG_LEVEL"); v != "" {
+	if v := getEnv("KAPTURE_LOG_LEVEL", "LOG_CATCHER_LOG_LEVEL"); v != "" {
 		c.LogLevel = v
 	}
-	if v := os.Getenv("LOG_CATCHER_NODE_NAME"); v != "" {
+	if v := getEnv("KAPTURE_NODE_NAME", "LOG_CATCHER_NODE_NAME"); v != "" {
 		c.NodeName = v
 	}
-	if v := os.Getenv("LOG_CATCHER_LOG_PATH"); v != "" {
+	if v := getEnv("KAPTURE_LOG_PATH", "LOG_CATCHER_LOG_PATH"); v != "" {
 		c.Agent.LogPath = v
 	}
-	if v := os.Getenv("LOG_CATCHER_STORAGE_PATH"); v != "" {
+	if v := getEnv("KAPTURE_STORAGE_PATH", "LOG_CATCHER_STORAGE_PATH"); v != "" {
 		c.Agent.Storage.Path = v
 	}
-	if v := os.Getenv("LOG_CATCHER_STORAGE_RETENTION"); v != "" {
+	if v := getEnv("KAPTURE_STORAGE_RETENTION", "LOG_CATCHER_STORAGE_RETENTION"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			c.Agent.Storage.Retention = d
 		}
 	}
-	if v := os.Getenv("LOG_CATCHER_STORAGE_MAX_DISK"); v != "" {
+	if v := getEnv("KAPTURE_STORAGE_MAX_DISK", "LOG_CATCHER_STORAGE_MAX_DISK"); v != "" {
 		c.Agent.Storage.MaxDisk = parseBytes(v)
 	}
-	if v := os.Getenv("LOG_CATCHER_AGENT_PORT"); v != "" {
+	if v := getEnv("KAPTURE_AGENT_PORT", "LOG_CATCHER_AGENT_PORT"); v != "" {
 		if p, err := strconv.Atoi(v); err == nil {
 			c.Agent.API.Port = p
 		}
 	}
-	if v := os.Getenv("LOG_CATCHER_AGENT_GRPC_PORT"); v != "" {
+	if v := getEnv("KAPTURE_AGENT_GRPC_PORT", "LOG_CATCHER_AGENT_GRPC_PORT"); v != "" {
 		if p, err := strconv.Atoi(v); err == nil {
 			c.Agent.API.GRPCPort = p
 		}
 	}
-	if v := os.Getenv("LOG_CATCHER_DASHBOARD_PORT"); v != "" {
+	if v := getEnv("KAPTURE_DASHBOARD_PORT", "LOG_CATCHER_DASHBOARD_PORT"); v != "" {
 		if p, err := strconv.Atoi(v); err == nil {
 			c.Aggregator.Dashboard.Port = p
 		}
 	}
-	if v := os.Getenv("LOG_CATCHER_AUTH_ENABLED"); v != "" {
+	if v := getEnv("KAPTURE_AUTH_ENABLED", "LOG_CATCHER_AUTH_ENABLED"); v != "" {
 		c.Aggregator.Dashboard.Auth.Enabled = (v == "true" || v == "1" || v == "yes")
 	}
-	if v := os.Getenv("LOG_CATCHER_AUTH_FILE"); v != "" {
+	if v := getEnv("KAPTURE_AUTH_FILE", "LOG_CATCHER_AUTH_FILE"); v != "" {
 		c.Aggregator.Dashboard.Auth.FilePath = v
 	}
-	if v := os.Getenv("LOG_CATCHER_USERNAME"); v != "" {
+	if v := getEnv("KAPTURE_USERNAME", "LOG_CATCHER_USERNAME"); v != "" {
 		c.Aggregator.Dashboard.Auth.Username = v
 	}
-	if v := os.Getenv("LOG_CATCHER_PASSWORD"); v != "" {
+	if v := getEnv("KAPTURE_PASSWORD", "LOG_CATCHER_PASSWORD"); v != "" {
 		c.Aggregator.Dashboard.Auth.Enabled = true
 		c.Aggregator.Dashboard.Auth.Password = v
 		if c.Aggregator.Dashboard.Auth.Username == "" {
 			c.Aggregator.Dashboard.Auth.Username = "admin"
 		}
 	}
-	if v := os.Getenv("LOG_CATCHER_DISCOVERY_METHOD"); v != "" {
+	if v := getEnv("KAPTURE_DISCOVERY_METHOD", "LOG_CATCHER_DISCOVERY_METHOD"); v != "" {
 		c.Aggregator.Discovery.Method = v
 	}
-	if v := os.Getenv("LOG_CATCHER_DISCOVERY_NAMESPACE"); v != "" {
+	if v := getEnv("KAPTURE_DISCOVERY_NAMESPACE", "LOG_CATCHER_DISCOVERY_NAMESPACE"); v != "" {
 		c.Aggregator.Discovery.Namespace = v
 	}
-	if v := os.Getenv("LOG_CATCHER_DISCOVERY_LABEL_SELECTOR"); v != "" {
+	if v := getEnv("KAPTURE_DISCOVERY_LABEL_SELECTOR", "LOG_CATCHER_DISCOVERY_LABEL_SELECTOR"); v != "" {
 		c.Aggregator.Discovery.LabelSelector = v
 	}
-	if v := os.Getenv("LOG_CATCHER_DISCOVERY_ENDPOINTS"); v != "" {
+	if v := getEnv("KAPTURE_DISCOVERY_ENDPOINTS", "LOG_CATCHER_DISCOVERY_ENDPOINTS"); v != "" {
 		c.Aggregator.Discovery.Endpoints = strings.Split(v, ",")
 	}
+}
+
+func getEnv(primary, secondary string) string {
+	if v := os.Getenv(primary); v != "" {
+		return v
+	}
+	return os.Getenv(secondary)
 }
 
 func hostname() string {

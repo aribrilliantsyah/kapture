@@ -45,13 +45,13 @@ type KubernetesProvider struct {
 // NewKubernetes creates a new Kubernetes discovery provider.
 func NewKubernetes(opts K8sOptions) *KubernetesProvider {
 	if opts.Namespace == "" {
-		opts.Namespace = "log-catcher"
+		opts.Namespace = "kapture"
 	}
 	if opts.LabelSelector == "" {
-		opts.LabelSelector = "app=k8s-log-catcher,role=agent"
+		opts.LabelSelector = "app=kapture,role=agent"
 	}
 	if opts.HeadlessService == "" {
-		opts.HeadlessService = "k8s-log-catcher-agents"
+		opts.HeadlessService = "kapture-agents"
 	}
 	if opts.AgentPort <= 0 {
 		opts.AgentPort = 19489
