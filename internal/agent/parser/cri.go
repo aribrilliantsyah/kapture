@@ -1,11 +1,12 @@
 package parser
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 )
 
-// CRILine represents a parsed CRI log line.
+// CRILine is one physical line of a container log file.
 type CRILine struct {
 	Timestamp time.Time
 	Stream    string // stdout | stderr
@@ -13,55 +14,59 @@ type CRILine struct {
 	Message   string
 }
 
+// ParseLine parses a container log line written by containerd / CRI-O (CRI
+// format) or by Docker's json-file driver (dockershim, cri-dockerd).
+func ParseLine(line string) (CRILine, bool) {
+	if strings.HasPrefix(line, "{") {
+		return parseDockerJSON(line)
+	}
+	return ParseCRI(line)
+}
+
 // ParseCRI parses a CRI-format log line:
-// "2025-01-15T10:30:00.123456789Z stdout F message here"
-// "2025-01-15T10:30:00.123456789Z stderr P partial mess"
+//
+//	2025-01-15T10:30:00.123456789Z stdout F message here
+//	2025-01-15T10:30:00.123456789Z stderr P partial mess
 func ParseCRI(line string) (CRILine, bool) {
-	// Minimum: "2006-01-02T15:04:05Z stdout F x" = ~35 chars
-	if len(line) < 35 {
+	tsStr, rest, ok := strings.Cut(line, " ")
+	if !ok {
 		return CRILine{}, false
 	}
-
-	// Find first space → end of timestamp
-	sp1 := strings.IndexByte(line, ' ')
-	if sp1 < 0 {
-		return CRILine{}, false
-	}
-	tsStr := line[:sp1]
-	rest := line[sp1+1:]
-
-	// Parse timestamp
 	ts, err := time.Parse(time.RFC3339Nano, tsStr)
 	if err != nil {
 		return CRILine{}, false
 	}
-
-	// Find second space → end of stream
-	sp2 := strings.IndexByte(rest, ' ')
-	if sp2 < 0 {
+	stream, rest, ok := strings.Cut(rest, " ")
+	if !ok {
 		return CRILine{}, false
 	}
-	stream := rest[:sp2]
-	rest = rest[sp2+1:]
-
-	// Find third space → end of flags
-	sp3 := strings.IndexByte(rest, ' ')
-	if sp3 < 0 {
-		// No message, just flag
-		return CRILine{
-			Timestamp: ts,
-			Stream:    stream,
-			IsPartial: rest == "P",
-			Message:   "",
-		}, true
-	}
-	flags := rest[:sp3]
-	msg := rest[sp3+1:]
-
+	flags, msg, _ := strings.Cut(rest, " ")
 	return CRILine{
-		Timestamp: ts,
+		Timestamp: ts.UTC(),
 		Stream:    stream,
-		IsPartial: flags == "P",
+		IsPartial: flags == "P" || strings.HasPrefix(flags, "P:"),
 		Message:   msg,
+	}, true
+}
+
+type dockerLine struct {
+	Log    string    `json:"log"`
+	Stream string    `json:"stream"`
+	Time   time.Time `json:"time"`
+}
+
+// parseDockerJSON parses {"log":"msg\n","stream":"stdout","time":"..."}.
+// A log value without a trailing newline is a partial line.
+func parseDockerJSON(line string) (CRILine, bool) {
+	var d dockerLine
+	if err := json.Unmarshal([]byte(line), &d); err != nil || d.Time.IsZero() {
+		return CRILine{}, false
+	}
+	msg, complete := strings.CutSuffix(d.Log, "\n")
+	return CRILine{
+		Timestamp: d.Time.UTC(),
+		Stream:    d.Stream,
+		IsPartial: !complete,
+		Message:   strings.TrimSuffix(msg, "\r"),
 	}, true
 }

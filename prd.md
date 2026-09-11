@@ -160,12 +160,18 @@ Agent extract **workload name** dari pod name. Di dashboard bisa:
 ### Key Design
 
 ```
-Key:   <tanggal>:<namespace>:<workload>:<pod>:<container>:<timestamp_nano>:<seq>
-Value: compressed(log_line)
+Key:   <tanggal>:<timestamp_nano hex>:<namespace>:<workload>:<workload_type>:<pod>:<container>:<level>:<seq hex>
+Value: <stream byte><pesan>   (blok SSTable dikompres snappy/zstd)
 
 Contoh:
-  2025-01-15:production:api-server:api-server-7f8b-x2k1p:app:1736942400123456789:0001
+  2025-01-15:181a9c3e2b4f0000:production:api-server:deployment:api-server-7f8b-x2k1p:app:ERROR:0000000000001a2b
 ```
+
+> **Revisi (implementasi):** desain awal `<tanggal>:<namespace>:...:<timestamp>` membuat scan satu hari
+> terurut per namespace, bukan per waktu, sehingga "500 log terbaru" hanya berisi namespace terakhir secara
+> alfabet. Timestamp kini tepat setelah tanggal, jadi range scan selalu kronologis lintas pod, `from`/`to`
+> menjadi seek langsung, dan semua field filter ada di key sehingga filter tidak perlu membaca value.
+> `seq` = offset baris di file, jadi membaca ulang file menimpa key yang sama (tidak duplikat).
 
 **Tanggal sebagai prefix pertama** — ini memungkinkan:
 
@@ -816,58 +822,69 @@ k8s-log-catcher/
 
 ## 13. Development Phases
 
+> **Status per 2026-09-10.** Deviasi yang disengaja: agent ↔ aggregator memakai HTTP/JSON (bukan gRPC),
+> live tail memakai polling 2 detik dengan cursor (bukan WebSocket), dan file tailing memakai poll 1 detik
+> karena inotify tidak melihat tulisan ke target symlink `/var/log/containers`. Config hanya dari
+> environment variable (belum ada loader YAML), dan `exclude.labels` belum diterapkan (butuh K8s API).
+>
+> **Update:** live tail kini WebSocket (agent stream NDJSON → aggregator → browser, satu image). Workload
+> ditentukan lewat `ownerReferences` (fallback pola nama), sehingga pod hasil rollout tetap satu grup.
+> Rekap harian per workload + katalog pod disimpan sebagai indeks (`_agg:`, `_cat:`). Retensi default `0`
+> (log lama tidak dihapus; hanya `max_disk`/manual). Login/setup halaman terpisah dengan sesi cookie
+> HMAC 30 hari yang bertahan saat restart, lockout 5 percobaan, dan proteksi replay TOTP.
+
 ### Phase 1: Core Agent (Minggu 1-2)
 
-- [ ] Go module setup
-- [ ] Config loading
-- [ ] CRI log parser
-- [ ] fsnotify file watcher
-- [ ] File tailer + offset tracking
-- [ ] Metadata enricher (namespace/pod/container from filename)
-- [ ] Workload name extractor (strip hash suffixes)
-- [ ] BadgerDB storage (date-prefix keys, compression, TTL)
-- [ ] Retention GC + disk cap
-- [ ] Health endpoint
+- [x] Go module setup
+- [x] Config loading (env var; YAML belum)
+- [x] CRI log parser (+ Docker json-file)
+- [x] fsnotify file watcher (+ poll untuk symlink & rotasi)
+- [x] File tailer + offset tracking (offset + inode)
+- [x] Metadata enricher (namespace/pod/container from filename)
+- [x] Workload name extractor (strip hash suffixes)
+- [x] BadgerDB storage (date-prefix keys, compression, TTL)
+- [x] Retention GC + disk cap
+- [x] Health endpoint
 
 **Deliverable:** Agent yang collect dan persist log dari semua pod di node.
 
 ### Phase 2: Aggregator & API (Minggu 3-4)
 
-- [ ] gRPC proto + codegen
-- [ ] Agent gRPC server
-- [ ] Aggregator discovery
-- [ ] Fan-out query + merge sort
-- [ ] REST API (logs, namespaces, workloads, pods, dates)
-- [ ] Storage management API (disk usage, delete, reset)
-- [ ] WebSocket live tail
-- [ ] Pagination (cursor-based)
+- [ ] gRPC proto + codegen (diganti HTTP/JSON)
+- [ ] Agent gRPC server (diganti HTTP/JSON)
+- [x] Aggregator discovery
+- [x] Fan-out query + merge sort
+- [x] REST API (logs, namespaces, workloads, pods, dates, catalog, volume)
+- [x] Storage management API (disk usage, delete, reset)
+- [ ] WebSocket live tail (diganti polling berbasis cursor)
+- [x] Pagination (cursor-based)
 
 **Deliverable:** Query log dari semua nodes via API, reset via API.
 
 ### Phase 3: Dashboard (Minggu 5-6)
 
-- [ ] HTML shell + responsive layout
-- [ ] Sidebar (namespace → workload → pod hierarchy)
-- [ ] Log viewer (virtual scroll)
-- [ ] All filters (date, namespace, workload, pod, level, search, regex)
-- [ ] Live tail (WebSocket)
-- [ ] Log detail modal
-- [ ] Storage management page (usage, per-date breakdown, reset button)
-- [ ] Dark mode
-- [ ] Export CSV/JSON
-- [ ] Embed via `go:embed`
+- [x] HTML shell + responsive layout
+- [x] Sidebar (namespace → workload → pod hierarchy)
+- [x] Log viewer (DOM biasa, maks 5.000 baris; belum virtual scroll)
+- [x] All filters (date, namespace, workload, pod, level, search, regex)
+- [x] Live tail (polling)
+- [x] Log detail (inline expand)
+- [x] Storage management page (usage, per-date breakdown, reset button)
+- [x] Dark mode
+- [x] Export CSV/JSON
+- [x] Embed via `go:embed`
 
 **Deliverable:** Full dashboard, browse per tanggal, reset dari UI.
 
 ### Phase 4: Polish (Minggu 7-8)
 
-- [ ] Replica compare view
-- [ ] Statistics page (volume chart, error rate, top workloads)
-- [ ] Multiline log support (stack traces)
-- [ ] Basic auth
-- [ ] Dockerfile
-- [ ] K8s manifests
-- [ ] README + docs
+- [x] Replica compare view
+- [x] Statistics page (Overview: volume chart, top error workloads, recent errors)
+- [x] Multiline log support (stack traces)
+- [x] Auth (login + TOTP 2FA)
+- [x] Dockerfile
+- [x] K8s manifests
+- [x] README + docs
 - [ ] CI/CD
 
 **Deliverable:** Production-ready v1.0.

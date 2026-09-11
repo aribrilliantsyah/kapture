@@ -3,10 +3,12 @@ module github.com/ordinary/k8s-log-catcher
 go 1.26.0
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	golang.org/x/crypto v0.57.0
+	google.golang.org/protobuf v1.36.7
 )
 
 require (
@@ -22,5 +24,4 @@ require (
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
-	google.golang.org/protobuf v1.36.7 // indirect
 )

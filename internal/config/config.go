@@ -9,11 +9,13 @@ import (
 
 // Config is the root configuration.
 type Config struct {
-	Mode       string          `json:"mode"` // agent | aggregator
-	Agent      AgentConfig     `json:"agent"`
+	Mode       string           `json:"mode"` // agent | aggregator
+	Agent      AgentConfig      `json:"agent"`
 	Aggregator AggregatorConfig `json:"aggregator"`
-	LogLevel   string          `json:"log_level"`
-	NodeName   string          `json:"node_name"`
+	LogLevel   string           `json:"log_level"`
+	NodeName   string           `json:"node_name"`
+	Timezone   string           `json:"timezone"` // IANA zone for days and display, e.g. Asia/Jakarta
+	Loc        *time.Location   `json:"-"`
 }
 
 // AgentConfig holds agent-specific settings.
@@ -57,14 +59,14 @@ type APIConfig struct {
 
 // AggregatorConfig holds aggregator settings.
 type AggregatorConfig struct {
-	Dashboard DashboardConfig  `json:"dashboard"`
-	Discovery DiscoveryConfig  `json:"discovery"`
-	Query     QueryConfig      `json:"query"`
+	Dashboard DashboardConfig `json:"dashboard"`
+	Discovery DiscoveryConfig `json:"discovery"`
+	Query     QueryConfig     `json:"query"`
 }
 
 // DashboardConfig for the web UI.
 type DashboardConfig struct {
-	Port int      `json:"port"`
+	Port int        `json:"port"`
 	Auth AuthConfig `json:"auth"`
 }
 
@@ -100,7 +102,7 @@ func DefaultConfig() *Config {
 			LogPath: "/var/log/containers",
 			Storage: StorageConfig{
 				Path:        "/data/kapture",
-				Retention:   7 * 24 * time.Hour, // 168h
+				Retention:   0,                      // keep everything; max_disk drops the oldest day when full
 				MaxDisk:     5 * 1024 * 1024 * 1024, // 5GB
 				Compression: "snappy",
 				GCInterval:  5 * time.Minute,
@@ -155,6 +157,9 @@ func (c *Config) LoadFromEnv() {
 	if v := getEnv("KAPTURE_NODE_NAME", "LOG_CATCHER_NODE_NAME"); v != "" {
 		c.NodeName = v
 	}
+	if v := getEnv("KAPTURE_TIMEZONE", "LOG_CATCHER_TIMEZONE"); v != "" {
+		c.Timezone = v
+	}
 	if v := getEnv("KAPTURE_LOG_PATH", "LOG_CATCHER_LOG_PATH"); v != "" {
 		c.Agent.LogPath = v
 	}
@@ -162,7 +167,7 @@ func (c *Config) LoadFromEnv() {
 		c.Agent.Storage.Path = v
 	}
 	if v := getEnv("KAPTURE_STORAGE_RETENTION", "LOG_CATCHER_STORAGE_RETENTION"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
+		if d, err := ParseDuration(v); err == nil {
 			c.Agent.Storage.Retention = d
 		}
 	}
@@ -247,4 +252,30 @@ func parseBytes(s string) int64 {
 		return 5 * 1024 * 1024 * 1024 // default 5GB
 	}
 	return n * multiplier
+}
+
+// ParseDuration is time.ParseDuration plus a "d" (day) unit: "30d", "12h", "0".
+func ParseDuration(s string) (time.Duration, error) {
+	s = strings.TrimSpace(s)
+	if n, ok := strings.CutSuffix(s, "d"); ok {
+		days, err := strconv.Atoi(n)
+		if err != nil {
+			return 0, err
+		}
+		return time.Duration(days) * 24 * time.Hour, nil
+	}
+	return time.ParseDuration(s)
+}
+
+// Location resolves the time zone used to split logs into days and to show
+// times: KAPTURE_TIMEZONE, else the TZ variable, else UTC.
+func (c *Config) Location() (*time.Location, error) {
+	name := c.Timezone
+	if name == "" {
+		name = os.Getenv("TZ")
+	}
+	if name == "" || name == "Local" {
+		return time.UTC, nil
+	}
+	return time.LoadLocation(name)
 }

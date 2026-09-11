@@ -23,7 +23,7 @@ spec:
         - name: gitlab-auth
       containers:
         - name: aggregator
-          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.1
+          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.4
           args: ["--mode=aggregator"]
           env:
             # Aggregator mendeteksi agent lewat K8s API
@@ -35,6 +35,10 @@ spec:
               value: "app=kapture,role=agent"
             - name: KAPTURE_DASHBOARD_PORT
               value: "19488"
+            # Zona waktu lokal: pembagian log per tanggal (penyimpanan, rekap,
+            # hapus per tanggal) dan jam di dashboard. Samakan di agent & aggregator.
+            - name: KAPTURE_TIMEZONE
+              value: "Asia/Jakarta"
             # Autentikasi dashboard & 2FA (diambil dari Secret)
             - name: KAPTURE_AUTH_ENABLED
               value: "true"
@@ -62,11 +66,17 @@ spec:
             # Volume untuk menyimpan auth.json & konfigurasi 2FA
             - name: auth-data
               mountPath: /data/kapture
+          # /healthz tidak butuh login; /api/v1/* butuh sesi (401 => pod di-restart terus)
           livenessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /healthz
               port: 19488
             periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 19488
+            periodSeconds: 10
       volumes:
         - name: auth-data
           hostPath:

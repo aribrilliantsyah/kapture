@@ -4,9 +4,12 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/ordinary/k8s-log-catcher/internal/agent/enricher"
+	"github.com/ordinary/k8s-log-catcher/internal/agent/hub"
 	"github.com/ordinary/k8s-log-catcher/internal/agent/server"
 	"github.com/ordinary/k8s-log-catcher/internal/agent/tailer"
 	"github.com/ordinary/k8s-log-catcher/internal/config"
+	"github.com/ordinary/k8s-log-catcher/internal/kube"
 	"github.com/ordinary/k8s-log-catcher/internal/model"
 	"github.com/ordinary/k8s-log-catcher/internal/storage"
 	badgerstore "github.com/ordinary/k8s-log-catcher/internal/storage/badger"
@@ -14,18 +17,21 @@ import (
 
 // Agent runs the log collection pipeline on a single node.
 type Agent struct {
-	cfg    *config.Config
-	store  storage.Store
-	tailer *tailer.Tailer
-	http   *server.HTTPServer
-	done   chan struct{}
+	cfg        *config.Config
+	store      storage.Store
+	tailer     *tailer.Tailer
+	hub        *hub.Hub
+	http       *server.HTTPServer
+	done       chan struct{}
+	writerDone chan struct{}
 }
 
 // New creates a new Agent.
 func New(cfg *config.Config) (*Agent, error) {
-	// Open storage
 	store, err := badgerstore.New(badgerstore.Options{
 		Path:        cfg.Agent.Storage.Path,
+		Node:        cfg.NodeName,
+		Location:    cfg.Loc,
 		Retention:   cfg.Agent.Storage.Retention,
 		MaxDisk:     cfg.Agent.Storage.MaxDisk,
 		GCInterval:  cfg.Agent.Storage.GCInterval,
@@ -35,15 +41,21 @@ func New(cfg *config.Config) (*Agent, error) {
 		return nil, err
 	}
 
-	t := tailer.New(cfg.Agent, cfg.NodeName, store)
-	httpSrv := server.NewHTTPServer(store, cfg.Agent.API.Port)
-
+	// Owner lookups group every generation of a deployment's pods together.
+	kc, err := kube.InCluster()
+	if err != nil {
+		slog.Info("not running in a cluster, workloads are derived from pod names", "reason", err)
+		kc = nil
+	}
+	h := hub.New()
 	return &Agent{
-		cfg:    cfg,
-		store:  store,
-		tailer: t,
-		http:   httpSrv,
-		done:   make(chan struct{}),
+		cfg:        cfg,
+		store:      store,
+		tailer:     tailer.New(cfg.Agent, cfg.NodeName, store, enricher.NewResolver(kc)),
+		hub:        h,
+		http:       server.NewHTTPServer(store, h, cfg.Agent.API.Port, cfg.NodeName),
+		done:       make(chan struct{}),
+		writerDone: make(chan struct{}),
 	}, nil
 }
 
@@ -56,30 +68,26 @@ func (a *Agent) Run() error {
 		"retention", a.cfg.Agent.Storage.Retention,
 	)
 
-	// Start the batch writer goroutine
 	go a.batchWriter()
-
-	// Start tailing log files
 	if err := a.tailer.Start(); err != nil {
 		return err
 	}
-
-	// Start HTTP server (blocks)
 	return a.http.Start()
 }
 
-// Stop gracefully shuts down the agent.
+// Stop drains the pipeline in order: files, pending batch, then storage.
 func (a *Agent) Stop() {
 	slog.Info("stopping agent")
-	close(a.done)
 	a.tailer.Stop()
+	close(a.done)
+	<-a.writerDone
 	a.http.Stop()
 	a.store.Close()
 }
 
-// batchWriter collects log entries from the tailer channel and writes them
-// to storage in batches for efficiency.
+// batchWriter collects entries from the tailer and writes them in batches.
 func (a *Agent) batchWriter() {
+	defer close(a.writerDone)
 	batchSize := a.cfg.Agent.Collector.BatchSize
 	if batchSize <= 0 {
 		batchSize = 100
@@ -99,6 +107,8 @@ func (a *Agent) batchWriter() {
 		}
 		if err := a.store.Write(batch); err != nil {
 			slog.Error("failed to write batch", "error", err, "count", len(batch))
+		} else {
+			a.hub.Publish(batch)
 		}
 		batch = batch[:0]
 	}
@@ -106,15 +116,20 @@ func (a *Agent) batchWriter() {
 	for {
 		select {
 		case <-a.done:
-			flush()
-			return
-
-		case entry := <-a.tailer.Out():
-			batch = append(batch, entry)
+			for {
+				select {
+				case e := <-a.tailer.Out():
+					batch = append(batch, e)
+				default:
+					flush()
+					return
+				}
+			}
+		case e := <-a.tailer.Out():
+			batch = append(batch, e)
 			if len(batch) >= batchSize {
 				flush()
 			}
-
 		case <-ticker.C:
 			flush()
 		}

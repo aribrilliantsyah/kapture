@@ -213,8 +213,8 @@ func (p *KubernetesProvider) discoverViaAPI() ([]string, error) {
 	var podList struct {
 		Items []struct {
 			Status struct {
-				Phase  string `json:"phase"`
-				PodIP  string `json:"podIP"`
+				Phase string `json:"phase"`
+				PodIP string `json:"podIP"`
 			} `json:"status"`
 		} `json:"items"`
 	}

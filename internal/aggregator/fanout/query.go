@@ -2,12 +2,14 @@ package fanout
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,7 +17,7 @@ import (
 	"github.com/ordinary/k8s-log-catcher/internal/model"
 )
 
-// Client fans out queries to multiple agents and merges results.
+// Client fans requests out to every agent and merges the replies.
 type Client struct {
 	discovery discovery.Provider
 	http      *http.Client
@@ -23,369 +25,364 @@ type Client struct {
 
 // New creates a new fanout client.
 func New(disc discovery.Provider, timeout time.Duration) *Client {
-	return &Client{
-		discovery: disc,
-		http: &http.Client{
-			Timeout: timeout,
-		},
-	}
+	return &Client{discovery: disc, http: &http.Client{Timeout: timeout}}
 }
 
-// QueryLogs fans out a log query to all agents and merges results by timestamp.
-func (c *Client) QueryLogs(req model.QueryRequest) (*model.QueryResult, error) {
-	endpoints := c.discovery.Endpoints()
-	if len(endpoints) == 0 {
-		return &model.QueryResult{}, nil
-	}
+// StatusError is an error reply from an agent.
+type StatusError struct {
+	Code int
+	Msg  string
+}
 
-	type agentResult struct {
-		result *model.QueryResult
-		err    error
-	}
+func (e *StatusError) Error() string { return e.Msg }
 
-	results := make([]agentResult, len(endpoints))
+type reply[T any] struct {
+	endpoint string
+	val      T
+	err      error
+}
+
+// all sends the same request to every agent in parallel.
+func all[T any](c *Client, method, path string, q url.Values) []reply[T] {
+	eps := c.discovery.Endpoints()
+	out := make([]reply[T], len(eps))
 	var wg sync.WaitGroup
-
-	for i, ep := range endpoints {
+	for i, ep := range eps {
 		wg.Add(1)
-		go func(idx int, endpoint string) {
+		go func() {
 			defer wg.Done()
-			qr, err := c.queryAgent(endpoint, req)
-			results[idx] = agentResult{result: qr, err: err}
-		}(i, ep)
+			out[i].endpoint = ep
+			out[i].err = c.do(method, ep, path, q, &out[i].val)
+		}()
 	}
-
 	wg.Wait()
+	return out
+}
 
-	// Merge all results
-	merged := &model.QueryResult{}
-	for _, r := range results {
-		if r.err != nil {
-			slog.Warn("agent query failed", "error", r.err)
+func (c *Client) do(method, endpoint, path string, q url.Values, out any) error {
+	u := endpoint + path
+	if len(q) > 0 {
+		u += "?" + q.Encode()
+	}
+	req, err := http.NewRequest(method, u, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("agent %s unreachable: %w", endpoint, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		var e struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(body, &e) != nil || e.Error == "" {
+			e.Error = fmt.Sprintf("agent %s: HTTP %d", endpoint, resp.StatusCode)
+		}
+		return &StatusError{Code: resp.StatusCode, Msg: e.Error}
+	}
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return fmt.Errorf("agent %s: bad response: %w", endpoint, err)
+	}
+	return nil
+}
+
+// collectErrors records failed agents. If every agent rejected the request
+// (e.g. an invalid regex) that rejection is returned instead.
+func collectErrors[T any](replies []reply[T], errs *[]string) error {
+	if len(replies) == 0 {
+		*errs = append(*errs, "no agents discovered")
+		return nil
+	}
+	ok := 0
+	var rejected error
+	for _, r := range replies {
+		if r.err == nil {
+			ok++
 			continue
 		}
-		if r.result != nil {
-			merged.Entries = append(merged.Entries, r.result.Entries...)
+		var se *StatusError
+		if errors.As(r.err, &se) && se.Code < 500 {
+			rejected = se
 		}
+		*errs = append(*errs, r.err.Error())
+	}
+	if ok == 0 && rejected != nil {
+		return rejected
+	}
+	return nil
+}
+
+// QueryLogs queries every agent and merges the pages by timestamp.
+//
+// Each agent that has more results reports the timestamp it stopped at. The
+// merged page may not reach past the furthest of those bounds, otherwise the
+// next page (which starts after the last shown entry) would skip that agent's
+// unseen entries.
+func (c *Client) QueryLogs(req model.QueryRequest) (*model.QueryResult, error) {
+	replies := all[model.QueryResult](c, http.MethodGet, "/api/v1/logs", req.Values())
+	res := &model.QueryResult{Entries: []model.LogEntry{}}
+	if err := collectErrors(replies, &res.Errors); err != nil {
+		return nil, err
 	}
 
-	// Sort by timestamp
-	sort.Slice(merged.Entries, func(i, j int) bool {
-		if req.Sort == "desc" {
-			return merged.Entries[i].Timestamp.After(merged.Entries[j].Timestamp)
+	desc := req.Desc()
+	var bound int64
+	bounded := false
+	for _, r := range replies {
+		if r.err != nil {
+			continue
 		}
-		return merged.Entries[i].Timestamp.Before(merged.Entries[j].Timestamp)
-	})
+		res.Entries = append(res.Entries, r.val.Entries...)
+		res.Partial = res.Partial || r.val.Partial
+		if n, err := strconv.ParseInt(r.val.NextCursor, 10, 64); err == nil {
+			if !bounded || (desc && n > bound) || (!desc && n < bound) {
+				bound, bounded = n, true
+			}
+		}
+	}
+	if bounded {
+		res.Entries = slices.DeleteFunc(res.Entries, func(e model.LogEntry) bool {
+			ts := e.Timestamp.UnixNano()
+			return (desc && ts < bound) || (!desc && ts > bound)
+		})
+	}
+	sortEntries(res.Entries, desc)
 
-	// Apply limit
 	limit := req.Limit
-	if limit <= 0 || limit > 10000 {
+	if limit <= 0 {
 		limit = 100
 	}
-	if len(merged.Entries) > limit {
-		merged.Entries = merged.Entries[:limit]
+	more := bounded
+	if len(res.Entries) > limit {
+		res.Entries = res.Entries[:limit]
+		more = true
 	}
-
-	return merged, nil
+	if more {
+		if n := len(res.Entries); n > 0 {
+			res.NextCursor = strconv.FormatInt(res.Entries[n-1].Timestamp.UnixNano(), 10)
+		} else {
+			res.NextCursor = strconv.FormatInt(bound, 10)
+		}
+	}
+	return res, nil
 }
 
-// queryAgent queries a single agent endpoint.
-func (c *Client) queryAgent(endpoint string, req model.QueryRequest) (*model.QueryResult, error) {
-	u, err := url.Parse(endpoint + "/api/v1/logs")
-	if err != nil {
+func sortEntries(entries []model.LogEntry, desc bool) {
+	sort.SliceStable(entries, func(i, j int) bool {
+		a, b := entries[i], entries[j]
+		if !a.Timestamp.Equal(b.Timestamp) {
+			return a.Timestamp.After(b.Timestamp) == desc
+		}
+		if a.Pod != b.Pod {
+			return (a.Pod > b.Pod) == desc
+		}
+		return (a.Seq > b.Seq) == desc
+	})
+}
+
+// Volume merges the log-volume histograms of all agents.
+func (c *Client) Volume(req model.QueryRequest) (*model.VolumeResult, error) {
+	// Pin the window so every agent uses the same bucket boundaries.
+	now := time.Now().UTC()
+	if req.To == nil {
+		req.To = &now
+	}
+	if req.From == nil {
+		from := req.To.Add(-24 * time.Hour)
+		req.From = &from
+	}
+	replies := all[model.VolumeResult](c, http.MethodGet, "/api/v1/stats/volume", req.Values())
+	res := &model.VolumeResult{
+		From: req.From.UnixNano(), To: req.To.UnixNano(),
+		Buckets: []model.VolumeBucket{}, Totals: map[string]int64{},
+	}
+	if err := collectErrors(replies, &res.Errors); err != nil {
 		return nil, err
 	}
 
-	q := u.Query()
-	if req.Date != "" {
-		q.Set("date", req.Date)
-	}
-	if req.Namespace != "" {
-		q.Set("namespace", req.Namespace)
-	}
-	if req.Workload != "" {
-		q.Set("workload", req.Workload)
-	}
-	if req.WorkloadType != "" {
-		q.Set("workload_type", req.WorkloadType)
-	}
-	if req.Pod != "" {
-		q.Set("pod", req.Pod)
-	}
-	if req.Container != "" {
-		q.Set("container", req.Container)
-	}
-	if req.Level != "" {
-		q.Set("level", req.Level)
-	}
-	if req.Search != "" {
-		q.Set("search", req.Search)
-	}
-	if req.Regex != "" {
-		q.Set("regex", req.Regex)
-	}
-	if req.Limit > 0 {
-		q.Set("limit", fmt.Sprintf("%d", req.Limit))
-	}
-	if req.Sort != "" {
-		q.Set("sort", req.Sort)
-	}
-	if req.From != nil {
-		q.Set("from", req.From.Format(time.RFC3339))
-	}
-	if req.To != nil {
-		q.Set("to", req.To.Format(time.RFC3339))
-	}
-	u.RawQuery = q.Encode()
-
-	resp, err := c.http.Get(u.String())
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var result model.QueryResult
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("decode response from %s: %w", endpoint, err)
-	}
-
-	return &result, nil
-}
-
-// GetDates fans out and collects unique dates from all agents.
-func (c *Client) GetDates() ([]string, error) {
-	return c.collectStrings("/api/v1/dates")
-}
-
-// GetNamespaces fans out and collects unique namespaces.
-func (c *Client) GetNamespaces() ([]string, error) {
-	return c.collectStrings("/api/v1/namespaces")
-}
-
-// GetWorkloads fans out and collects unique workloads.
-func (c *Client) GetWorkloads(namespace string) ([]string, error) {
-	path := "/api/v1/workloads"
-	if namespace != "" {
-		path += "?namespace=" + url.QueryEscape(namespace)
-	}
-	return c.collectStrings(path)
-}
-
-// GetPods fans out and collects unique pods.
-func (c *Client) GetPods(namespace, workload string) ([]string, error) {
-	q := url.Values{}
-	if namespace != "" {
-		q.Set("namespace", namespace)
-	}
-	if workload != "" {
-		q.Set("workload", workload)
-	}
-	path := "/api/v1/pods"
-	if len(q) > 0 {
-		path += "?" + q.Encode()
-	}
-	return c.collectStrings(path)
-}
-
-// GetStorageInfo collects and aggregates storage info from all agents.
-func (c *Client) GetStorageInfo() (*model.StorageInfo, error) {
-	endpoints := c.discovery.Endpoints()
-	aggregated := &model.StorageInfo{}
-	dateMap := make(map[string]*model.DateBreakdown)
-
-	for _, ep := range endpoints {
-		info, err := c.getAgentStorage(ep)
-		if err != nil {
-			slog.Warn("failed to get storage info", "endpoint", ep, "error", err)
+	top := map[[2]string]int64{}
+	for _, r := range replies {
+		if r.err != nil {
 			continue
 		}
-		aggregated.UsedBytes += info.UsedBytes
-		aggregated.MaxBytes += info.MaxBytes
-		aggregated.EntryCount += info.EntryCount
-
-		if aggregated.OldestDate == "" || (info.OldestDate != "" && info.OldestDate < aggregated.OldestDate) {
-			aggregated.OldestDate = info.OldestDate
+		v := r.val
+		if len(res.Buckets) == 0 {
+			res.BucketNanos, res.Buckets = v.BucketNanos, v.Buckets
+		} else {
+			for i, b := range v.Buckets {
+				if i < len(res.Buckets) {
+					for l, n := range b.Counts {
+						res.Buckets[i].Counts[l] += n
+					}
+				}
+			}
 		}
-		if info.NewestDate > aggregated.NewestDate {
-			aggregated.NewestDate = info.NewestDate
+		for l, n := range v.Totals {
+			res.Totals[l] += n
 		}
+		for _, t := range v.TopErrors {
+			top[[2]string{t.Namespace, t.Workload}] += t.Count
+		}
+		res.Partial = res.Partial || v.Partial
+	}
 
+	res.TopErrors = make([]model.WorkloadCount, 0, len(top))
+	for k, n := range top {
+		res.TopErrors = append(res.TopErrors, model.WorkloadCount{Namespace: k[0], Workload: k[1], Count: n})
+	}
+	sort.Slice(res.TopErrors, func(i, j int) bool { return res.TopErrors[i].Count > res.TopErrors[j].Count })
+	if len(res.TopErrors) > 10 {
+		res.TopErrors = res.TopErrors[:10]
+	}
+	return res, nil
+}
+
+// Catalog concatenates the container catalogs of all agents.
+func (c *Client) Catalog() ([]model.CatalogItem, []string) {
+	replies := all[[]model.CatalogItem](c, http.MethodGet, "/api/v1/catalog", nil)
+	var errs []string
+	_ = collectErrors(replies, &errs)
+	items := []model.CatalogItem{}
+	for _, r := range replies {
+		if r.err == nil {
+			items = append(items, r.val...)
+		}
+	}
+	return items, errs
+}
+
+// GetDates returns the union of dates with logs, newest first.
+func (c *Client) GetDates() []string {
+	d := c.collectStrings("/api/v1/dates", nil)
+	slices.Reverse(d)
+	return d
+}
+
+// GetNamespaces returns the union of namespaces.
+func (c *Client) GetNamespaces() []string {
+	return c.collectStrings("/api/v1/namespaces", nil)
+}
+
+// GetWorkloads returns the union of workloads.
+func (c *Client) GetWorkloads(namespace string) []string {
+	return c.collectStrings("/api/v1/workloads", url.Values{"namespace": {namespace}})
+}
+
+// GetPods returns the union of pods.
+func (c *Client) GetPods(namespace, workload string) []string {
+	return c.collectStrings("/api/v1/pods", url.Values{"namespace": {namespace}, "workload": {workload}})
+}
+
+func (c *Client) collectStrings(path string, q url.Values) []string {
+	seen := map[string]bool{}
+	for _, r := range all[[]string](c, http.MethodGet, path, q) {
+		for _, v := range r.val {
+			seen[v] = true
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for v := range seen {
+		out = append(out, v)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// GetStorageInfo sums the storage usage of all agents.
+func (c *Client) GetStorageInfo() *model.StorageInfo {
+	agg := &model.StorageInfo{Dates: []model.DateBreakdown{}, Nodes: []model.StorageInfo{}}
+	dates := map[string]*model.DateBreakdown{}
+	for _, r := range all[model.StorageInfo](c, http.MethodGet, "/api/v1/storage", nil) {
+		if r.err != nil {
+			agg.Nodes = append(agg.Nodes, model.StorageInfo{Node: r.endpoint + " (unreachable)"})
+			continue
+		}
+		info := r.val
+		agg.UsedBytes += info.UsedBytes
+		agg.MaxBytes += info.MaxBytes
+		agg.EntryCount += info.EntryCount
+		agg.Retention = info.Retention
+		if agg.Timezone == "" {
+			agg.Timezone = info.Timezone
+		}
+		if info.OldestDate != "" && (agg.OldestDate == "" || info.OldestDate < agg.OldestDate) {
+			agg.OldestDate = info.OldestDate
+		}
+		if info.NewestDate > agg.NewestDate {
+			agg.NewestDate = info.NewestDate
+		}
 		for _, d := range info.Dates {
-			if existing, ok := dateMap[d.Date]; ok {
-				existing.EntryCount += d.EntryCount
-				existing.SizeBytes += d.SizeBytes
+			if cur, ok := dates[d.Date]; ok {
+				cur.EntryCount += d.EntryCount
+				cur.SizeBytes += d.SizeBytes
 			} else {
-				copy := d
-				dateMap[d.Date] = &copy
+				d := d
+				dates[d.Date] = &d
 			}
 		}
+		info.Dates = nil
+		agg.Nodes = append(agg.Nodes, info)
 	}
-
-	aggregated.Dates = make([]model.DateBreakdown, 0, len(dateMap))
-	for _, d := range dateMap {
-		aggregated.Dates = append(aggregated.Dates, *d)
+	for _, d := range dates {
+		agg.Dates = append(agg.Dates, *d)
 	}
-	sort.Slice(aggregated.Dates, func(i, j int) bool {
-		return aggregated.Dates[i].Date > aggregated.Dates[j].Date
-	})
-
-	return aggregated, nil
+	sort.Slice(agg.Dates, func(i, j int) bool { return agg.Dates[i].Date > agg.Dates[j].Date })
+	sort.Slice(agg.Nodes, func(i, j int) bool { return agg.Nodes[i].Node < agg.Nodes[j].Node })
+	return agg
 }
 
-func (c *Client) getAgentStorage(endpoint string) (*model.StorageInfo, error) {
-	resp, err := c.http.Get(endpoint + "/api/v1/storage")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var info model.StorageInfo
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		return nil, err
-	}
-	return &info, nil
-}
-
-// DeleteLogs fans out a delete request to all agents.
-func (c *Client) DeleteLogs(req model.DeleteRequest) (int64, error) {
-	endpoints := c.discovery.Endpoints()
-	var totalDeleted int64
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, ep := range endpoints {
-		wg.Add(1)
-		go func(endpoint string) {
-			defer wg.Done()
-			deleted, err := c.deleteFromAgent(endpoint, req)
-			if err != nil {
-				slog.Warn("delete failed on agent", "endpoint", endpoint, "error", err)
-				return
-			}
-			mu.Lock()
-			totalDeleted += deleted
-			mu.Unlock()
-		}(ep)
-	}
-
-	wg.Wait()
-	return totalDeleted, nil
-}
-
-func (c *Client) deleteFromAgent(endpoint string, req model.DeleteRequest) (int64, error) {
-	u := endpoint + "/api/v1/logs"
+// DeleteLogs fans a delete out to all agents and returns the total deleted.
+func (c *Client) DeleteLogs(req model.DeleteRequest) (int64, []string) {
+	path, q := "/api/v1/logs", url.Values{}
 	if req.All {
-		u = endpoint + "/api/v1/logs/all"
+		path += "/all"
 	} else {
-		q := url.Values{}
-		if req.BeforeDate != "" {
-			q.Set("before", req.BeforeDate)
-		}
-		if req.Namespace != "" {
-			q.Set("namespace", req.Namespace)
-		}
-		if req.Workload != "" {
-			q.Set("workload", req.Workload)
-		}
-		if len(q) > 0 {
-			u += "?" + q.Encode()
+		for k, v := range map[string]string{"date": req.Date, "before": req.BeforeDate, "namespace": req.Namespace, "workload": req.Workload} {
+			if v != "" {
+				q.Set(k, v)
+			}
 		}
 	}
-
-	httpReq, err := http.NewRequest(http.MethodDelete, u, nil)
-	if err != nil {
-		return 0, err
+	replies := all[struct {
+		Deleted int64 `json:"deleted"`
+	}](c, http.MethodDelete, path, q)
+	var total int64
+	var errs []string
+	_ = collectErrors(replies, &errs)
+	for _, r := range replies {
+		total += r.val.Deleted
 	}
+	return total, errs
+}
 
-	resp, err := c.http.Do(httpReq)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
+// AgentStatus is the health of one agent.
+type AgentStatus struct {
+	Endpoint string `json:"endpoint"`
+	Node     string `json:"node,omitempty"`
+	Version  string `json:"version,omitempty"`
+	Status   string `json:"status"`
+	Error    string `json:"error,omitempty"`
+}
 
-	var result struct {
-		Deleted int64  `json:"deleted"`
+// Agents checks every discovered agent.
+func (c *Client) Agents() []AgentStatus {
+	type health struct {
 		Status  string `json:"status"`
+		Node    string `json:"node"`
+		Version string `json:"version"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return 0, err
+	replies := all[health](c, http.MethodGet, "/healthz", nil)
+	out := make([]AgentStatus, 0, len(replies))
+	for _, r := range replies {
+		s := AgentStatus{Endpoint: r.endpoint, Node: r.val.Node, Version: r.val.Version, Status: "ok"}
+		if r.err != nil {
+			s.Status, s.Error = "unreachable", r.err.Error()
+		}
+		out = append(out, s)
 	}
-	return result.Deleted, nil
-}
-
-// collectStrings fans out a GET request to all agents and merges string arrays.
-func (c *Client) collectStrings(path string) ([]string, error) {
-	endpoints := c.discovery.Endpoints()
-	unique := make(map[string]bool)
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, ep := range endpoints {
-		wg.Add(1)
-		go func(endpoint string) {
-			defer wg.Done()
-			resp, err := c.http.Get(endpoint + path)
-			if err != nil {
-				slog.Warn("request failed", "endpoint", endpoint, "path", path, "error", err)
-				return
-			}
-			defer resp.Body.Close()
-
-			var items []string
-			if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
-				return
-			}
-
-			mu.Lock()
-			for _, item := range items {
-				unique[item] = true
-			}
-			mu.Unlock()
-		}(ep)
-	}
-
-	wg.Wait()
-
-	result := make([]string, 0, len(unique))
-	for v := range unique {
-		result = append(result, v)
-	}
-	sort.Strings(result)
-	return result, nil
-}
-
-// HealthCheck checks connectivity to all agents.
-func (c *Client) HealthCheck() map[string]string {
-	endpoints := c.discovery.Endpoints()
-	status := make(map[string]string)
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, ep := range endpoints {
-		wg.Add(1)
-		go func(endpoint string) {
-			defer wg.Done()
-			resp, err := c.http.Get(endpoint + "/healthz")
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				status[endpoint] = "unreachable"
-				return
-			}
-			resp.Body.Close()
-			if resp.StatusCode == 200 {
-				status[endpoint] = "ok"
-			} else {
-				status[endpoint] = fmt.Sprintf("http %d", resp.StatusCode)
-			}
-		}(ep)
-	}
-
-	wg.Wait()
-	return status
+	sort.Slice(out, func(i, j int) bool { return out[i].Node+out[i].Endpoint < out[j].Node+out[j].Endpoint })
+	return out
 }

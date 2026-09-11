@@ -1,6 +1,9 @@
 package enricher
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 // Workload contains the extracted workload name and type.
 type Workload struct {
@@ -23,6 +26,17 @@ var (
 	daemonSetRe = regexp.MustCompile(`^(.+)-([a-z0-9]{5})$`)
 )
 
+// safeHash reports whether s only uses the alphabet of Kubernetes generated
+// name suffixes (k8s.io/apimachinery/pkg/util/rand: "bcdfghjklmnpqrstvwxz2456789").
+func safeHash(s string) bool {
+	for _, c := range s {
+		if !strings.ContainsRune("bcdfghjklmnpqrstvwxz2456789", c) {
+			return false
+		}
+	}
+	return true
+}
+
 // hasDigit checks if a string contains at least one digit.
 func hasDigit(s string) bool {
 	for _, c := range s {
@@ -42,10 +56,11 @@ func ExtractWorkload(podName string) Workload {
 	}
 
 	// 2. Deployment: name-<rs-hash>-<pod-hash>
-	//    rs-hash must contain at least one digit to distinguish from name-parts
+	//    The rs-hash either contains a digit or uses only the characters
+	//    Kubernetes puts in generated names (no vowels, no 0/1/3), which tells
+	//    it apart from ordinary name parts like "-backend-".
 	if m := deploymentRe.FindStringSubmatch(podName); m != nil {
-		rsHash := m[2]
-		if hasDigit(rsHash) {
+		if hasDigit(m[2]) || (safeHash(m[2]) && safeHash(m[3])) {
 			return Workload{Name: m[1], Type: "deployment"}
 		}
 	}

@@ -11,12 +11,12 @@ import (
 
 // Watcher watches a directory for new, modified, and deleted container log files.
 type Watcher struct {
-	dir     string
-	w       *fsnotify.Watcher
+	dir      string
+	w        *fsnotify.Watcher
 	onCreate func(path string)
 	onModify func(path string)
 	onRemove func(path string)
-	done    chan struct{}
+	done     chan struct{}
 }
 
 // WatcherOpts configures the watcher.

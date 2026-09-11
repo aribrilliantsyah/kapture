@@ -4,5 +4,5 @@ testdata
 scripts/registry.conf
 .registry.conf
 *.md
-*.png
-*.svg
+# Only the icon sources; web/static images are embedded into the binary.
+build/

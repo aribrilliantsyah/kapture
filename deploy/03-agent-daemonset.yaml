@@ -24,16 +24,22 @@ spec:
         - operator: Exists          # Berjalan di semua node termasuk master
       containers:
         - name: agent
-          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.1
+          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.4
           args: ["--mode=agent"]
           env:
             - name: KAPTURE_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            # Retensi data per node (default: 7 hari / 168 jam)
+            # Zona waktu lokal: pembagian log per tanggal (penyimpanan, rekap,
+            # hapus per tanggal) dan jam di dashboard. Samakan di agent & aggregator.
+            - name: KAPTURE_TIMEZONE
+              value: "Asia/Jakarta"
+            # Retensi per node. "0" = log tidak pernah dihapus otomatis; hanya
+            # max disk (hari terlama dibuang saat penuh) atau hapus manual.
+            # Contoh lain: "30d", "168h".
             - name: KAPTURE_STORAGE_RETENTION
-              value: "168h"
+              value: "0"
             # Batas maksimal ukuran disk per node (default: 5GB)
             - name: KAPTURE_STORAGE_MAX_DISK
               value: "5GB"
@@ -58,6 +64,11 @@ spec:
             # Simpan database BadgerDB lokal di disk node
             - name: data
               mountPath: /data/kapture
+            # Node dengan runtime Docker (cri-dockerd): symlink log menunjuk ke
+            # /var/lib/docker/containers, aktifkan mount ini juga.
+            # - name: dockercontainers
+            #   mountPath: /var/lib/docker/containers
+            #   readOnly: true
           livenessProbe:
             httpGet:
               path: /healthz
@@ -77,3 +88,7 @@ spec:
           hostPath:
             path: /var/lib/kapture
             type: DirectoryOrCreate
+        # - name: dockercontainers
+        #   hostPath:
+        #     path: /var/lib/docker/containers
+        #     type: Directory

@@ -57,7 +57,15 @@ $ kubectl logs api-server-7f8b9c-x2k1p --previous
   - Tingkat Keparahan (`DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`)
   - Pencarian Teks Bebas & Regex (`/timeout.*after \d+ms/`)
 - **Autentikasi 2FA Universal (Google Authenticator)** — Dilindungi sistem login berstandar industri dengan Time-based One-Time Password (TOTP, RFC 6238). Wizard setup awal menyajikan QR code untuk dipindai langsung via Google Authenticator atau Authy. Setiap sesi dashboard berikutnya wajib diverifikasi dengan kode OTP 6-digit.
+- **Manajemen Pengguna (Admin & Operasional)** — Banyak akun dengan dua peran: **Admin** (termasuk kelola pengguna) dan **Operasional** (semua fitur kecuali kelola pengguna). Admin bisa memulihkan sendiri password atau 2FA lewat pertanyaan keamanan; akun operasional di-reset oleh admin. Menu **Profile** untuk ubah nama, password, dan menampilkan ulang QR 2FA saat ganti HP.
+- **Backup & Restore** — Unduh log semua node sebagai satu berkas `.tar.gz` (bisa dibatasi rentang tanggal), lalu restore ke Kapture yang sama atau ke Kapture lain, misalnya di laptop untuk investigasi offline.
+- **Warna Terminal di Log** — Log yang berisi kode warna ANSI (mis. Spring Boot) ditampilkan berwarna, bukan karakter aneh; level `ERROR`/`WARN` tetap terdeteksi.
 - **Ekspor Cepat** — Unduh hasil filter langsung dalam format **JSON** atau **CSV** untuk kebutuhan audit dan laporan tim.
+- **Live Tail via WebSocket, Histogram & Compare** — Log baru didorong real-time (agent → aggregator → browser, tetap satu image), klik batang histogram volume untuk zoom ke rentang waktu itu, dan bandingkan 2 replica berdampingan dengan scroll yang tersinkron berdasarkan timestamp.
+- **Riwayat per Workload, bukan per Pod** — Agent mengikuti `ownerReferences` (Pod → ReplicaSet → Deployment, Job → CronJob) lewat Kubernetes API. Setiap rollout memberi nama pod baru, tetapi lognya tetap dikelompokkan di bawah Deployment yang sama; tab **Pods** menampilkan semua generasi pod beserta ReplicaSet-nya.
+- **Waktu Lokal (mis. WIB)** — Dengan `KAPTURE_TIMEZONE=Asia/Jakarta`, log dikelompokkan per tanggal WIB dan semua jam di dashboard ditampilkan dalam WIB, apa pun zona waktu browser, sehingga cocok dengan jam yang dicetak aplikasi. Waktu diambil dari timestamp container runtime, jadi zona waktu aplikasi (mis. JVM) tidak berpengaruh. Mengganti zona waktu memindahkan log yang sudah tersimpan ke tanggal lokalnya sekali saat agent start.
+- **Dashboard Rekap** — Volume harian 14 hari per level, sumber error teratas, workload tersibuk, dan error terbaru. Rekap harian disimpan sebagai indeks sehingga tidak perlu memindai log.
+- **Sintaks Pencarian** — `timeout database` (AND), `error OR warning`, `error -healthcheck`, `"connection refused"`, `/failed.*\d+ retries/`, serta filter field `ns:` `workload:` `pod:` `c:` `level:`.
 - **Zero External Dependencies** — Berjalan sebagai satu binary murni Go (`~13 MB`). Tidak perlu Elasticsearch, Postgres, Redis, atau Fluentd.
 
 ---
@@ -177,19 +185,64 @@ kubectl port-forward -n kapture svc/kapture 19488:19488
 
 Buka peramban Anda di: **[`http://localhost:19488`](http://localhost:19488)**
 
+Variasi yang sering dipakai:
+
+```bash
+# Port lokal lain (mis. 19488 sudah terpakai): buka http://localhost:8080
+kubectl port-forward -n kapture svc/kapture 8080:19488
+
+# Jalan di background, hentikan dengan: kill %1 (atau pkill -f "port-forward -n kapture")
+kubectl port-forward -n kapture svc/kapture 19488:19488 >/dev/null 2>&1 &
+
+# Bisa diakses dari komputer lain di jaringan yang sama (bind ke semua interface)
+kubectl port-forward -n kapture --address 0.0.0.0 svc/kapture 19488:19488
+
+# Pakai kubeconfig / context tertentu
+kubectl --context prod-cluster port-forward -n kapture svc/kapture 19488:19488
+
+# Debug satu agent secara langsung (API agent tanpa login, port 19489)
+kubectl get pods -n kapture -l role=agent -o wide        # pilih pod di node yang dicari
+kubectl port-forward -n kapture pod/<nama-pod-agent> 19489:19489
+curl http://localhost:19489/healthz
+```
+
+> Koneksi `port-forward` putus bila pod aggregator restart. Jalankan ulang perintahnya. Live tail di dashboard tersambung kembali otomatis setelah forward aktif lagi.
+
 #### 1. Setup Awal (Onboarding Pertama Kali)
-Saat pertama kali membuka dashboard, Kapture akan menampilkan dialog **Setup Awal**:
-1. **Atur Kredensial Administrator:** Masukkan Username dan Password baru (minimal 6 karakter).
-2. **Scan QR Code 2FA:** Pindai kode QR yang muncul menggunakan aplikasi **Google Authenticator**, **Authy**, **Microsoft Authenticator**, atau pengelola kata sandi favorit Anda.
-3. **Verifikasi OTP:** Masukkan 6-digit kode verifikasi yang tampil di aplikasi authenticator Anda, lalu klik **"Simpan & Aktifkan 2FA"**.
+Saat pertama kali membuka dashboard, Kapture akan menampilkan halaman **Setup Awal** (3 langkah):
+1. **Akun Administrator:** Masukkan Username dan Password baru. Password wajib minimal 8 karakter dan memuat huruf kecil, huruf besar, angka, dan simbol (contoh `Qawsed#1477`). Aturan ini berlaku untuk semua password: setup, pengguna baru, reset, dan ganti password.
+2. **Pertanyaan Pemulihan:** Pilih satu pertanyaan keamanan dan isi jawabannya (tidak peka huruf besar/kecil). Dipakai untuk memulihkan password atau 2FA yang hilang.
+3. **Scan QR Code 2FA:** Pindai kode QR dengan **Google Authenticator**, **Authy**, **Microsoft Authenticator**, atau pengelola kata sandi favorit Anda, lalu masukkan 6-digit kodenya.
 
-Setup kredensial dan kunci rahasia 2FA langsung disimpan secara aman ke volume persisten Kapture (`/data/logcatcher/auth.json`), sehingga tidak akan hilang saat pod di-*restart*.
+Akun, kunci 2FA, dan jawaban pemulihan (di-hash bcrypt) disimpan di volume persisten Kapture (`/data/kapture/auth.json`), sehingga tidak hilang saat pod di-*restart*. Berkas lama (satu admin) otomatis dimigrasikan; pengguna cukup login ulang sekali.
 
-#### 2. Login Seterusnya (Alur 2 Langkah yang Aman)
-Setelah setup selesai, setiap kali mengakses dashboard Anda akan melewati alur masuk dua tahap:
-1. **Langkah 1 (Kredensial):** Masukkan Username dan Password. Sistem memvalidasi kebenaran akun dan hash password (bcrypt).
-2. **Langkah 2 (Verifikasi 2FA):** Setelah password terbukti benar, antarmuka otomatis beralih menampilkan form 2FA untuk memasukkan **6-digit kode OTP** dari aplikasi Google Authenticator.
-3. **Sesi Aktif:** Setelah kode 2FA terverifikasi, sesi aktif diterbitkan dan berlaku selama **24 jam**. Anda dapat mengakhiri sesi kapan saja lewat tombol **`🚪 Keluar`** di bar navigasi atas.
+#### 2. Login Seterusnya (Alur Bertahap)
+1. **Kredensial:** Username dan Password (bcrypt).
+2. **Kode 2FA:** 6-digit kode dari aplikasi authenticator.
+3. **Langkah tambahan bila perlu:** akun baru atau yang password-nya di-reset admin wajib **mengganti password**; akun yang 2FA-nya di-reset wajib **scan QR baru**.
+4. **Sesi Aktif:** cookie sesi `HttpOnly` yang ditandatangani (HMAC). Berlaku **30 hari**, diperpanjang otomatis, **tetap valid walau aggregator restart**. Ganti password atau reset oleh admin mengakhiri semua sesi akun itu.
+
+Setiap langkah login berlaku 5 menit. Jika kedaluwarsa, halaman kembali ke form password dengan pesan penjelasan. Setelah 5 kali gagal, klien (dan akun) dikunci 5 menit; kode TOTP yang sudah dipakai tidak bisa dipakai ulang. Untuk skrip, `POST /api/v1/auth/login` dengan `{username, password, code}` mengembalikan token untuk header `Authorization: Bearer <token>`.
+
+#### 3. Pengguna & Peran
+| Peran | Hak akses |
+|---|---|
+| **Admin** | Semua fitur + menu **Users** (tambah, ubah peran, reset password, reset 2FA, hapus pengguna) |
+| **Operasional** | Semua fitur kecuali menu Users |
+
+- Admin menambah pengguna dengan **password sementara**. Saat login pertama, pengguna memilih password sendiri lalu memasang 2FA.
+- Admin terakhir tidak bisa dihapus atau diturunkan perannya.
+- Admin tanpa pertanyaan pemulihan ditandai **Set recovery question** di menu Users. Klik tanda itu (atau menu ⋮) untuk mengatur pertanyaan pemulihan admin lain; untuk akun sendiri diminta password saat ini.
+- Menu **Profile** (semua pengguna): ubah nama tampilan dan username, ganti password, **Show QR code** (butuh password) untuk memindahkan 2FA ke HP baru, serta atur pertanyaan pemulihan (admin).
+
+#### 4. Lupa Password / HP Hilang
+- **Admin:** klik *Forgot your password or lost your phone?* di halaman login, jawab pertanyaan pemulihan, lalu:
+  - *Lupa password* → konfirmasi dengan kode 2FA, lalu buat password baru.
+  - *HP hilang* → konfirmasi dengan password, lalu scan QR 2FA baru.
+
+  Jawaban saja tidak pernah cukup untuk mengganti keduanya, sehingga pertanyaan keamanan yang tertebak tidak bisa dipakai mengambil alih akun.
+- **Operasional:** minta admin melakukan reset lewat menu **Users**.
+- **Semua admin terkunci:** hapus `auth.json` di volume aggregator lalu jalankan setup ulang (log tidak terpengaruh).
 
 > 🔒 **Opsi Intranet Non-Auth:** Jika Kapture di-*deploy* di jaringan lokal tertutup dan Anda ingin menonaktifkan login secara total, set variabel lingkungan `LOG_CATCHER_AUTH_ENABLED=false`.
 
@@ -253,9 +306,14 @@ Kapture memberikan kontrol penuh agar penyimpanan disk server Anda tidak pernah 
 └─────────────────────────────────────────────────────────────┘
 ```
 
-1. **Auto-Retention (TTL)** — Setiap baris log memiliki masa aktif (default `168h` / 7 hari). Latar belakang garbage collector berjalan tiap 5 menit untuk memangkas data kedaluwarsa.
+1. **Retensi (opsional)** — Default `0`: log dari tanggal-tanggal sebelumnya **tidak dihapus otomatis**. Jika `KAPTURE_STORAGE_RETENTION` diisi (mis. `30d`), hari yang seluruhnya lewat batas dibuang oleh GC tiap 5 menit.
 2. **Disk Cap Hard-Limit** — Parameter `max_disk` (default `5GB`) membatasi kapasitas maksimal per node. Bila batas hampir tercapai, log terlama otomatis dikorbankan terlebih dahulu.
-3. **Reset Manual Seketika** — Klik tombol **Storage** di kanan atas dashboard, tentukan tanggal yang ingin dihapus, atau tekan **Reset All Logs** untuk mengosongkan seluruh database seketika.
+3. **Reset Manual Seketika** — Buka menu **Storage**, tentukan tanggal yang ingin dihapus, atau tekan **Reset All Logs** untuk mengosongkan seluruh database seketika.
+4. **Backup & Restore** — Di menu **Storage**, kartu *Backup and restore*:
+   - **Download** mengunduh satu berkas `kapture-backup-<waktu>.tar.gz` berisi log setiap node (opsional dibatasi tanggal awal/akhir). Isi arsip: `nodes/<node>/NNNNNN.badger` (format backup BadgerDB) dan `manifest.json`.
+   - **Choose backup file** mengunggah berkas tersebut dan menambahkan lognya. Tidak ada yang dihapus, dan baris yang sudah ada tidak terduplikasi (restore aman diulang). Log tiap node masuk ke agent dengan nama node yang sama, atau ke agent pertama bila node itu tidak ada, misalnya saat me-restore backup produksi ke Kapture di laptop (`make run-agent` + `make run-aggregator`).
+   - Tanggal log mengikuti `KAPTURE_TIMEZONE` Kapture tujuan, retensi tujuan juga berlaku. Posisi baca berkas (offset) tidak ikut di-backup.
+   - Unggahan besar lewat Ingress mungkin perlu menaikkan batas ukuran body, mis. `nginx.ingress.kubernetes.io/proxy-body-size: "0"`.
 
 ---
 
@@ -265,45 +323,88 @@ Kapture menyediakan REST API yang bersih dan mudah diintegrasikan dengan skrip d
 
 | Metode | Endpoint | Deskripsi |
 |---|---|---|
-| `GET` | `/api/v1/logs` | Ambil baris log dengan filter query parameter |
-| `GET` | `/api/v1/dates` | Daftar seluruh tanggal yang memiliki rekaman log |
-| `GET` | `/api/v1/namespaces` | Daftar namespace yang tercatat di database |
-| `GET` | `/api/v1/workloads` | Daftar workload (hasil pengelompokan replika pod) |
-| `GET` | `/api/v1/pods` | Daftar nama pod aktif |
-| `GET` | `/api/v1/storage` | Statistik kapasitas disk, baris log, dan sebaran per tanggal |
-| `GET` | `/api/v1/health` | Healthcheck status koneksi aggregator ke seluruh agent |
+| `GET` | `/api/v1/logs` | Log urut waktu (default terbaru dulu). Param: `from`, `to` (RFC3339), `date`, `namespace`, `workload`, `workload_type`, `pod`, `container`, `level` (koma), `search`, `regex`, `exclude_ns`, `limit`, `sort=asc\|desc`, `cursor` |
+| `GET` | `/api/v1/logs/export?format=csv\|json` | Ekspor hasil filter (maks `max_results`) |
+| `GET` | `/api/v1/stats/volume` | Histogram volume per level + top workload error. Param filter sama, plus `buckets` |
+| `GET` | `/api/v1/stats/recap?from=YYYY-MM-DD&namespace=X` | Rekap harian per workload: jumlah baris per level, byte, pod yang terlihat |
+| `WS` | `/api/v1/tail` | Live tail WebSocket, parameter filter sama dengan `/api/v1/logs` |
+| `GET` | `/api/v1/catalog` | Semua container yang pernah punya log, termasuk pod lama (namespace, workload, pod, node, first/last seen) |
+| `GET` | `/api/v1/dates` | Daftar tanggal yang memiliki log |
+| `GET` | `/api/v1/namespaces`, `/workloads`, `/pods` | Daftar namespace / workload / pod |
+| `GET` | `/api/v1/nodes` | Status tiap agent |
+| `GET` | `/api/v1/storage` | Kapasitas disk, jumlah baris, sebaran per tanggal dan per node |
+| `GET` | `/api/v1/health` | Versi + status agent (butuh login) |
+| `GET` | `/healthz` | Liveness probe publik |
+| `DELETE` | `/api/v1/logs?date=YYYY-MM-DD` | Hapus log satu tanggal |
 | `DELETE` | `/api/v1/logs?before=YYYY-MM-DD` | Hapus seluruh log sebelum tanggal tertentu |
+| `DELETE` | `/api/v1/logs?namespace=X[&workload=Y]` | Hapus log per namespace / workload |
 | `DELETE` | `/api/v1/logs/all` | **Reset Total:** Hapus seluruh data log di semua node |
+| `GET` | `/api/v1/storage/backup?from=YYYY-MM-DD&to=YYYY-MM-DD` | Unduh backup `.tar.gz` semua node (tanggal opsional) |
+| `POST` | `/api/v1/storage/restore` | Restore: body = berkas `.tar.gz` dari endpoint backup |
+| `GET` `POST` | `/api/v1/users` | *(Admin)* Daftar / tambah pengguna `{username, display_name, role, password}` |
+| `PATCH` `DELETE` | `/api/v1/users/{id}` | *(Admin)* Ubah `{username, display_name, role}` / hapus pengguna |
+| `POST` | `/api/v1/users/{id}/password`, `/api/v1/users/{id}/2fa/reset` | *(Admin)* Reset password sementara / reset 2FA |
+| `PUT` | `/api/v1/users/{id}/recovery` | *(Admin)* Pertanyaan pemulihan admin lain `{question, answer}` |
+| `GET` `PATCH` | `/api/v1/profile` | Profil sendiri (nama tampilan, username) |
+| `POST` | `/api/v1/profile/password`, `/api/v1/profile/2fa` | Ganti password `{current, password}` / tampilkan QR 2FA `{password}` |
+| `PUT` | `/api/v1/profile/recovery` | *(Admin)* Pertanyaan pemulihan `{question, answer, password}` |
+
+Pagination: kirim `next_cursor` dari respons sebelumnya sebagai `cursor`. Jika `partial: true`, batas scan per request tercapai dan cursor melanjutkan pencarian.
 
 ### Contoh Pemanggilan Curl:
 
 ```bash
+# 1. Buka akses ke aggregator (terminal terpisah, atau tambahkan & di akhir)
+kubectl port-forward -n kapture svc/kapture 19488:19488
+
+# 2. Login sekali untuk mendapat token (kode = 6 digit dari authenticator)
+TOKEN=$(curl -s -X POST http://localhost:19488/api/v1/auth/login \
+  -d '{"username":"admin","password":"<password>","code":"123456"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
+
 # Ambil log error dari workload 'api-server' pada hari ini
-curl "http://localhost:19488/api/v1/logs?workload=api-server&level=ERROR&limit=50"
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:19488/api/v1/logs?workload=api-server&level=ERROR&limit=50"
 
 # Hapus log yang berumur lebih dari 3 hari lalu
-curl -X DELETE "http://localhost:19488/api/v1/logs?before=2026-09-07"
+curl -H "Authorization: Bearer $TOKEN" -X DELETE "http://localhost:19488/api/v1/logs?before=2026-09-07"
 
 # Reset bersih seluruh database
-curl -X DELETE "http://localhost:19488/api/v1/logs/all"
+curl -H "Authorization: Bearer $TOKEN" -X DELETE "http://localhost:19488/api/v1/logs/all"
+
+# Backup semua node ke berkas lokal, lalu restore ke Kapture lain (mis. di laptop)
+curl -H "Authorization: Bearer $TOKEN" -o kapture-backup.tar.gz "http://localhost:19488/api/v1/storage/backup?from=2026-09-01"
+curl -H "Authorization: Bearer $TOKEN" -X POST --data-binary @kapture-backup.tar.gz "http://localhost:19488/api/v1/storage/restore"
 ```
+
+Token berlaku 30 hari. Jika `KAPTURE_AUTH_ENABLED=false`, header `Authorization` tidak diperlukan.
+
+---
+
+## Troubleshooting: Log Tidak Muncul
+
+| Gejala | Penyebab & Solusi |
+|---|---|
+| Dashboard: *No agents discovered* | Aggregator tidak menemukan agent. Cek `kubectl get pods -n kapture -l role=agent` dan service headless `kapture-agents`. |
+| Dashboard: *No logs collected yet* | Agent jalan tapi belum menyimpan log. Cek log agent: `cannot open log file (is its symlink target mounted?)` berarti target symlink tidak ter-mount. Node dengan runtime Docker butuh mount `/var/lib/docker/containers` (lihat komentar di `deploy/03-agent-daemonset.yaml`). |
+| Aggregator restart terus | Versi lama memakai liveness probe `/api/v1/health` yang butuh login (401). Gunakan manifest terbaru (`/healthz`). |
+| Upgrade dari versi lama | Layout key database berubah (urut waktu). Saat start, agent menghapus data lama beserta offset lalu membaca ulang file log yang masih ada di node. |
 
 ---
 
 ## Konfigurasi Lingkungan (Environment Variables)
 
-Semua opsi konfigurasi dapat dikontrol lewat berkas `config.yaml` maupun variabel lingkungan:
+Konfigurasi dibaca dari variabel lingkungan (`KAPTURE_*`, dengan `LOG_CATCHER_*` sebagai nama lama). `config.example.yaml` hanya dokumentasi, tidak dibaca oleh binary.
 
 | Variabel Lingkungan | Nilai Bawaan | Keterangan |
 |---|---|---|
 | `LOG_CATCHER_MODE` | `agent` | Mode eksekusi: `agent` atau `aggregator` |
 | `LOG_CATCHER_LOG_PATH` | `/var/log/containers` | Direktori target file log di node host |
-| `LOG_CATCHER_STORAGE_PATH`| `/data/logcatcher` | Direktori database BadgerDB lokal |
-| `LOG_CATCHER_STORAGE_RETENTION` | `168h` (7 hari) | Batas retensi log otomatis (`72h`, `168h`, `720h`) |
+| `LOG_CATCHER_STORAGE_PATH`| `/data/kapture` | Direktori database BadgerDB lokal |
+| `KAPTURE_TIMEZONE` | `TZ` atau `UTC` | Zona waktu IANA, mis. `Asia/Jakarta`. Menentukan batas tanggal (penyimpanan, rekap, hapus per tanggal) dan jam di dashboard. Samakan di agent dan aggregator |
+| `LOG_CATCHER_STORAGE_RETENTION` | `0` (simpan terus) | `0` = tidak dihapus otomatis (hanya `max_disk` atau hapus manual). Bisa juga `30d`, `168h` |
 | `LOG_CATCHER_STORAGE_MAX_DISK` | `5GB` | Batas maksimum ruang disk sebelum rotasi paksa |
 | `LOG_CATCHER_AGENT_PORT` | `19489` | Port HTTP internal agent |
 | `LOG_CATCHER_DASHBOARD_PORT` | `19488` | Port antarmuka web Aggregator |
-| `LOG_CATCHER_PASSWORD` | *(kosong)* | Aktifkan Basic Auth dashboard jika diisi |
+| `LOG_CATCHER_AUTH_ENABLED` | `true` | Login + 2FA di dashboard (`false` untuk intranet tertutup) |
 | `LOG_CATCHER_DISCOVERY_METHOD` | `kubernetes` | Metode penemuan node agent (`kubernetes` / `static`) |
 | `LOG_CATCHER_LOG_LEVEL` | `info` | Tingkat log internal (`debug`, `info`, `warn`, `error`) |
 
@@ -315,7 +416,7 @@ Semua opsi konfigurasi dapat dikontrol lewat berkas `config.yaml` maupun variabe
 |---|---|---|
 | **Bahasa Utama** | Go **1.26+** | Kompilasi single binary, performa konkurensi goroutine tinggi, ekosistem native K8s |
 | **Engine Basis Data** | BadgerDB **v4.9** | Key-Value store embedded murni Go (tanpa CGO), cepat untuk operasi batch write, dilengkapi kompresi Snappy bawaan & TTL |
-| **Pendeteksi Berkas** | `fsnotify` **v1.10** | Memanfaatkan *inotify* kernel Linux untuk mendeteksi perubahan log seketika tanpa *polling loop* |
+| **Pendeteksi Berkas** | `fsnotify` **v1.10** + poll 1 detik | *inotify* untuk file baru/terhapus. `/var/log/containers/*.log` adalah symlink ke `/var/log/pods`, dan inotify tidak melaporkan tulisan ke target symlink, jadi isi file dibaca lewat poll ringan (1 `fstat` per file per detik) yang juga mengikuti rotasi kubelet |
 | **Frontend UI** | HTML5, CSS3 kustom, Vanilla JS | Berkas statis di-embed ke dalam binary melalui `go:embed`. Membuka dashboard instan tanpa lag dan tanpa build-step Node yang rumit |
 | **Format Kontainer** | CRI Log Specification | Kompatibel penuh dengan runtime containerd dan CRI-O standar Kubernetes modern |
 

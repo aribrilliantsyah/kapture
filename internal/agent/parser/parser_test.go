@@ -7,10 +7,10 @@ import (
 
 func TestParseCRI(t *testing.T) {
 	tests := []struct {
-		name    string
-		line    string
-		want    CRILine
-		wantOK  bool
+		name   string
+		line   string
+		want   CRILine
+		wantOK bool
 	}{
 		{
 			name:   "full stdout line",
@@ -93,6 +93,24 @@ func TestParseCRI(t *testing.T) {
 	}
 }
 
+func TestParseLineDocker(t *testing.T) {
+	got, ok := ParseLine(`{"log":"hello world\n","stream":"stderr","time":"2025-01-15T10:30:00.5Z"}`)
+	if !ok || got.Message != "hello world" || got.Stream != "stderr" || got.IsPartial ||
+		!got.Timestamp.Equal(time.Date(2025, 1, 15, 10, 30, 0, 5e8, time.UTC)) {
+		t.Fatalf("docker line = %+v ok=%v", got, ok)
+	}
+	got, ok = ParseLine(`{"log":"partial","stream":"stdout","time":"2025-01-15T10:30:00Z"}`)
+	if !ok || !got.IsPartial {
+		t.Fatalf("expected partial docker line, got %+v", got)
+	}
+	if _, ok := ParseLine(`{"not":"a log"}`); ok {
+		t.Fatal("expected failure for non-log json")
+	}
+	if got, ok := ParseLine("2025-01-15T10:30:00Z stdout F short"); !ok || got.Message != "short" {
+		t.Fatalf("short CRI line = %+v ok=%v", got, ok)
+	}
+}
+
 func TestDetectLevel(t *testing.T) {
 	tests := []struct {
 		msg  string
@@ -107,6 +125,14 @@ func TestDetectLevel(t *testing.T) {
 		{"ERR connection refused", "ERROR"},
 		{"no level here just a message", "INFO"},
 		{"WARNING: disk space low", "WARN"},
+		{`{"msg":"request failed with error","level":"info"}`, "INFO"},
+		{`{"severity":"ERROR","message":"x"}`, "ERROR"},
+		{`ts=2025-01-15 lvl=warn msg="slow"`, "WARN"},
+		{"E0115 10:30:00.123456       1 controller.go:42] sync failed", "ERROR"},
+		{"W0115 10:30:00.123456       1 reflector.go:1] watch closed", "WARN"},
+		{"INFO retry after error", "INFO"},
+		{"2025-01-15 10:30:00 [main] error: disk full", "ERROR"},
+		{"no errors found", "INFO"},
 	}
 
 	for _, tt := range tests {

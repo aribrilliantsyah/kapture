@@ -6,10 +6,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	_ "time/tzdata" // zone database inside the binary, no OS tzdata needed
 
 	"github.com/ordinary/k8s-log-catcher/internal/agent"
 	"github.com/ordinary/k8s-log-catcher/internal/aggregator"
 	"github.com/ordinary/k8s-log-catcher/internal/config"
+	"github.com/ordinary/k8s-log-catcher/internal/version"
 )
 
 func main() {
@@ -35,7 +37,14 @@ func main() {
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
 
-	slog.Info("kapture starting", "mode", cfg.Mode, "version", "1.0.0")
+	loc, err := cfg.Location()
+	if err != nil {
+		slog.Error("invalid KAPTURE_TIMEZONE, use an IANA name like Asia/Jakarta", "timezone", cfg.Timezone, "error", err)
+		os.Exit(1)
+	}
+	cfg.Loc = loc
+
+	slog.Info("kapture starting", "mode", cfg.Mode, "version", version.Version, "commit", version.Commit, "timezone", loc.String())
 
 	// Handle signals
 	sigCh := make(chan os.Signal, 1)

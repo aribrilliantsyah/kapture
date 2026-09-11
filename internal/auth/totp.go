@@ -66,26 +66,27 @@ func ComputeHOTP(secret string, counter uint64) (string, error) {
 
 // VerifyTOTP validates a 6-digit OTP code against the secret within a +/- 30s window.
 func VerifyTOTP(secret, inputCode string) bool {
-	cleanCode := strings.TrimSpace(inputCode)
-	cleanCode = strings.ReplaceAll(cleanCode, "-", "")
-	cleanCode = strings.ReplaceAll(cleanCode, " ", "")
+	_, ok := matchTOTP(secret, inputCode)
+	return ok
+}
 
-	if len(cleanCode) != 6 {
-		return false
+// matchTOTP returns the time-step counter the code belongs to, so callers can
+// refuse a code that was already used.
+func matchTOTP(secret, inputCode string) (int64, bool) {
+	code := strings.NewReplacer("-", "", " ", "").Replace(strings.TrimSpace(inputCode))
+	if len(code) != 6 {
+		return 0, false
 	}
-
 	now := time.Now().Unix() / 30
-
-	// Check time windows: -30s, current, +30s to tolerate minor clock drift
+	// -30s, current, +30s to tolerate clock drift on the phone
 	for _, offset := range []int64{-1, 0, 1} {
 		expected, err := ComputeHOTP(secret, uint64(now+offset))
 		if err != nil {
-			return false
+			return 0, false
 		}
-		if expected == cleanCode {
-			return true
+		if hmac.Equal([]byte(expected), []byte(code)) {
+			return now + offset, true
 		}
 	}
-
-	return false
+	return 0, false
 }

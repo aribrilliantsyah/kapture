@@ -92,7 +92,8 @@ fi
 
 # ── 5. Build Docker Image ──
 echo -e "${BLUE}Membangun Docker Image (${FULL_IMAGE_TAG})...${NC}"
-docker build -t "$FULL_IMAGE_TAG" -t "$LATEST_IMAGE_TAG" .
+COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)"
+docker build --build-arg VERSION="$VERSION" --build-arg COMMIT="$COMMIT" -t "$FULL_IMAGE_TAG" -t "$LATEST_IMAGE_TAG" .
 echo -e "${GREEN}✓ Build image selesai!${NC}\n"
 
 # ── 6. Push ke Container Registry ──
@@ -118,19 +119,8 @@ if [[ "$UPDATE_MANIFESTS" =~ ^[Yy]$ ]]; then
         echo -e "${GREEN}✓ Berhasil update ${AGG_FILE}${NC}"
     fi
 
-    # Sinkronkan secret imagePullSecrets jika kubectl tersedia
-    if command -v kubectl >/dev/null 2>&1 && [ -n "$TOKEN" ]; then
-        echo -e "\n${BLUE}Menyiapkan secret penarik image (imagePullSecret) di cluster...${NC}"
-        kubectl create namespace kapture --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1 || true
-        # Sinkronkan secret imagePullSecrets dengan nama 'gitlab-auth'
-        kubectl create secret docker-registry gitlab-auth \
-          --namespace=kapture \
-          --docker-server="$REGISTRY" \
-          --docker-username="$USERNAME" \
-          --docker-password="$TOKEN" \
-          --dry-run=client -o yaml | kubectl apply -f -
-        echo -e "${GREEN}✓ Secret 'gitlab-auth' berhasil disinkronkan ke namespace 'kapture'!${NC}"
-    fi
+    # Secret imagePullSecrets 'gitlab-auth' dikelola terpisah di cluster,
+    # skrip ini tidak membuat atau menimpanya.
 
     echo -e "\n${CYAN}Terapkan manifest ke Kubernetes dengan perintah:${NC}"
     echo -e "  ${YELLOW}kubectl apply -f deploy/${NC}\n"
