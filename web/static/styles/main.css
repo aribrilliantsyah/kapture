@@ -497,21 +497,9 @@ table.table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .chip .live-dot, .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
 .live-dot.wait { background: var(--lv-warn); }
 
-/* ── Embedded terminal log panel (workload page) ── */
+/* ── Embedded log panel (workload page): same theme as Explorer and Live tail ── */
 .embedded-logs { flex: 1; min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
 .embedded-logs .page-fill { min-height: 0; }
-.terminal .histogram { background: var(--panel); }
-.terminal .log-table { background: #111214; color: #d7d3cf; --lvt-debug: #4fc0a2; --lvt-info: #82a8ee; --lvt-warn: #e0b240; --lvt-error: #f07a86; --lvt-fatal: #e57fae; }
-.terminal .log-head { background: #17181b; color: #8f8a84; border-color: #26272b; }
-.terminal .row:hover, .terminal .row.open { background: #1c1d21; }
-.terminal .c-time, .terminal .src-pod, .terminal .c-msg .more { color: #8f8a84; }
-.terminal .c-src { color: #b9b4ae; }
-.terminal .detail { background: #17181b; border-color: #26272b; }
-.terminal .detail-meta .k { color: #8f8a84; }
-.terminal .detail-msg { background: #111214; border-color: #26272b; color: #ece9e6; }
-.terminal .detail .btn { background: #1c1d21; border-color: #2c2d32; color: #d7d3cf; }
-.terminal .empty h3 { color: #ece9e6; }
-.terminal .skel { background: linear-gradient(90deg, #1c1d21 25%, #232428 50%, #1c1d21 75%); background-size: 200% 100%; }
 
 /* ── Sign-in and setup pages ── */
 .auth-body { background: var(--bg); }
@@ -622,14 +610,6 @@ table.table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .num-pair { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.25; }
 .num-pair small { color: var(--muted); font-size: 10.5px; font-weight: 400; }
 
-/* Terminal panel: bright terminal colors on the dark log background. */
-.terminal .log-table {
-  --ansi-0: #8f8a84; --ansi-1: #f07a86; --ansi-2: #6fd49a; --ansi-3: #e0b240;
-  --ansi-4: #82a8ee; --ansi-5: #e57fae; --ansi-6: #5fc9d6; --ansi-7: #d7d3cf;
-  --ansi-8: #8f8a84; --ansi-9: #ff9a9a; --ansi-10: #8ee6ad; --ansi-11: #f5d06a;
-  --ansi-12: #a5c3f5; --ansi-13: #f0a8d0; --ansi-14: #8ee0ea; --ansi-15: #f5f5f4;
-}
-
 /* ── Log search in the Explorer / Compare toolbar ── */
 .tool-search {
   display: inline-flex; align-items: center; gap: 6px; height: 28px; width: min(300px, 100%); padding: 0 8px; cursor: text;
@@ -696,6 +676,26 @@ table.table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .badge-btn { border: 0; cursor: pointer; font: inherit; font-size: 11px; }
 .badge-btn .icon { width: 11px; height: 11px; }
 .badge-btn:hover { filter: brightness(.95); text-decoration: underline; }
+
+/* ── About page ── */
+.icon .filled { fill: currentColor; stroke: none; }
+.about-hero { display: flex; align-items: flex-start; gap: 18px; }
+.about-hero img { border-radius: 14px; flex: none; }
+.about-hero h2 { margin: 0 0 6px; font-size: 18px; }
+.about-hero p { margin: 0; color: var(--text-2); max-width: 70ch; }
+.about-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.about-badges .badge { gap: 5px; }
+.about-badges .icon { width: 12px; height: 12px; }
+.about-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0; }
+.about-list dt { font-weight: 600; color: var(--text); }
+.about-list dd { margin: 2px 0 0; color: var(--text-2); }
+.about-text { margin: 0 0 12px; color: var(--text-2); }
+.about-author { display: flex; align-items: center; gap: 12px; }
+.about-avatar {
+  display: grid; place-items: center; width: 46px; height: 46px; flex: none; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent-text); font-weight: 700; font-size: 15px;
+}
+.about-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 
 /* ── Sign-in extras ── */
 .field.center > span { text-align: center; }

@@ -24,7 +24,7 @@ spec:
         - operator: Exists          # Berjalan di semua node termasuk master
       containers:
         - name: agent
-          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.4
+          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.5
           args: ["--mode=agent"]
           env:
             - name: KAPTURE_NODE_NAME

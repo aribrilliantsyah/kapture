@@ -21,9 +21,14 @@ spec:
       serviceAccountName: kapture
       imagePullSecrets:
         - name: gitlab-auth
+      # Akun dashboard & kunci 2FA disimpan di hostPath node ini (auth.json).
+      # Bila pod pindah node, wizard setup muncul lagi karena auth.json tertinggal
+      # di node lama. Kunci ke satu node tetap (lihat docs/INTERNAL_K8S_USAGE.md):
+      # nodeSelector:
+      #   kubernetes.io/hostname: worker-node-1
       containers:
         - name: aggregator
-          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.4
+          image: registry.e-gitlab.prodak.id/bpd-diy1/va/kapture:v1.0.5
           args: ["--mode=aggregator"]
           env:
             # Aggregator mendeteksi agent lewat K8s API

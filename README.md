@@ -160,6 +160,8 @@ Cukup sesuaikan nama image di `03-agent-daemonset.yaml` dan `04-aggregator-deplo
 kubectl apply -f deploy/
 ```
 
+> 🏢 **Panduan Internal:** Untuk langkah lengkap di cluster internal (membuat secret `gitlab-auth` lebih dulu, mengunci aggregator di node tertentu agar akun dashboard tidak hilang, upgrade versi, backup, dan troubleshooting), lihat **[`docs/INTERNAL_K8S_USAGE.md`](docs/INTERNAL_K8S_USAGE.md)**.
+
 Verifikasi pod berjalan:
 
 ```bash
@@ -475,6 +477,12 @@ Didistribusikan di bawah lisensi [MIT](LICENSE). Bebas digunakan, dimodifikasi, 
 
 ## Kredit
 
-Dibuat untuk mempermudah monitoring log pod Kubernetes agar tidak lagi hilang saat dibutuhkan.
+**Penulis:** Ari Ardiansyah — [github.com/aribrilliantsyah](https://github.com/aribrilliantsyah) · [ariardiansyah.study@gmail.com](mailto:ariardiansyah.study@gmail.com)
+
+Dibuat untuk mempermudah monitoring log pod Kubernetes agar tidak lagi hilang saat dibutuhkan, tanpa peduli framework atau bahasa yang dipakai aplikasinya.
+
+Sebagian perancangan dan penulisan kode dibantu model **Claude** (Anthropic) dan **Gemini** (Google); setiap usulan tetap ditinjau, diuji, dan disesuaikan secara manual.
+
+Font JetBrains Mono Nerd Font (SIL OFL) dan ikon Lucide (ISC). Halaman **About** di dashboard memuat ringkasan yang sama.
 
 Dibangun dengan Go, kecintaan pada sistem yang minimalis, dan semangat otomasi cloud-native. ⭐

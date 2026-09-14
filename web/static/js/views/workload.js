@@ -50,7 +50,7 @@ export function mount(root) {
     body.replaceChildren();
     page.classList.toggle('fill', tab === 'logs');
     if (tab === 'logs') {
-      const box = h('div', { class: 'embedded-logs terminal' });
+      const box = h('div', { class: 'embedded-logs' });
       body.append(box);
       logs = logsView.mount(box, { lock: { ns: p.ns, wl: p.wl } });
       logs.update(p);

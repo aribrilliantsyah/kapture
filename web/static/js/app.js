@@ -16,11 +16,12 @@ import * as agents from './views/agents.js';
 import * as storage from './views/storage.js';
 import * as profile from './views/profile.js';
 import * as users from './views/users.js';
+import * as about from './views/about.js';
 
-const VIEWS = { dashboard, logs, compare, workloads, workload, namespaces: nsView, agents, storage, profile, users };
+const VIEWS = { dashboard, logs, compare, workloads, workload, namespaces: nsView, agents, storage, profile, users, about };
 const TITLES = {
   dashboard: 'Dashboard', logs: 'Explorer', compare: 'Compare', workloads: 'Workloads', workload: 'Workload',
-  namespaces: 'Namespaces', agents: 'Agents', storage: 'Storage', profile: 'Profile', users: 'Users',
+  namespaces: 'Namespaces', agents: 'Agents', storage: 'Storage', profile: 'Profile', users: 'Users', about: 'About',
 };
 const $ = (id) => document.getElementById(id);
 const rootEl = document.documentElement;
@@ -141,6 +142,7 @@ function renderSidebar(r = getRoute()) {
       sideLink('#/profile', 'Profile', 'user', r.view === 'profile'),
       isAdmin() ? sideLink('#/users', 'Users', 'users', r.view === 'users') : null,
     ].filter(Boolean)) : null,
+    sideGroup('about', '', [sideLink('#/about', 'About', 'info', r.view === 'about')]),
   ].filter(Boolean));
 }
 
@@ -170,6 +172,7 @@ function paletteItems(q) {
   );
   if (store.authEnabled) items.push(page('Profile', 'user', '#/profile', 'account password 2fa qr recovery'));
   if (isAdmin()) items.push(page('Users', 'users', '#/users', 'accounts roles operators admin'));
+  items.push(page('About', 'info', '#/about', 'author credits stack license version help'));
   if (q) {
     for (const w of workloadsOf('')) {
       const tag = TYPE_TAGS[w.type] || w.type;
@@ -250,9 +253,10 @@ $('avatar').addEventListener('click', () => menu($('avatar'), store.authEnabled
     { label: `${store.displayName} · ${store.role === 'admin' ? 'Administrator' : 'Operator'}` },
     { icon: 'user', text: 'Profile', onClick: () => setRoute('profile') },
     ...(isAdmin() ? [{ icon: 'users', text: 'Users', onClick: () => setRoute('users') }] : []),
+    { icon: 'info', text: 'About', onClick: () => setRoute('about') },
     { icon: 'logout', text: 'Sign out', onClick: signOut },
   ]
-  : [{ label: 'Authentication is disabled' }]));
+  : [{ label: 'Authentication is disabled' }, { icon: 'info', text: 'About', onClick: () => setRoute('about') }]));
 
 // ── Start ──
 async function start() {
