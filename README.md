@@ -504,7 +504,7 @@ Settings are read from environment variables (`KAPTURE_*`, with legacy `LOG_CATC
 ## Directory Structure
 
 ```
-k8s-log-catcher/
+kapture/
 ├── cmd/
 │   └── kapture/
 │       └── main.go                 # Application entrypoint (mode switch)

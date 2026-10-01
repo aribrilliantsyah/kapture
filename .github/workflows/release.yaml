@@ -123,7 +123,7 @@ jobs:
       - name: Build Multi-Platform Binaries
         run: |
           mkdir -p dist/bin dist/assets
-          MODULE="github.com/ordinary/k8s-log-catcher"
+          MODULE="github.com/aribrilliantsyah/kapture"
           LDFLAGS="-s -w -X ${MODULE}/internal/version.Version=${{ env.VERSION }} -X ${MODULE}/internal/version.Commit=${{ env.COMMIT }}"
 
           TARGETS=(

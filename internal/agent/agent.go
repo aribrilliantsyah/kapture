@@ -4,15 +4,15 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/agent/enricher"
-	"github.com/ordinary/k8s-log-catcher/internal/agent/hub"
-	"github.com/ordinary/k8s-log-catcher/internal/agent/server"
-	"github.com/ordinary/k8s-log-catcher/internal/agent/tailer"
-	"github.com/ordinary/k8s-log-catcher/internal/config"
-	"github.com/ordinary/k8s-log-catcher/internal/kube"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
-	"github.com/ordinary/k8s-log-catcher/internal/storage"
-	badgerstore "github.com/ordinary/k8s-log-catcher/internal/storage/badger"
+	"github.com/aribrilliantsyah/kapture/internal/agent/enricher"
+	"github.com/aribrilliantsyah/kapture/internal/agent/hub"
+	"github.com/aribrilliantsyah/kapture/internal/agent/server"
+	"github.com/aribrilliantsyah/kapture/internal/agent/tailer"
+	"github.com/aribrilliantsyah/kapture/internal/config"
+	"github.com/aribrilliantsyah/kapture/internal/kube"
+	"github.com/aribrilliantsyah/kapture/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/storage"
+	badgerstore "github.com/aribrilliantsyah/kapture/internal/storage/badger"
 )
 
 // Agent runs the log collection pipeline on a single node.

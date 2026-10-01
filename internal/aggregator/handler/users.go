@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/ordinary/k8s-log-catcher/internal/auth"
+	"github.com/aribrilliantsyah/kapture/internal/auth"
 )
 
 // User management (/api/v1/users, administrators only; Wrap enforces the

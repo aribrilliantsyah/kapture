@@ -7,9 +7,9 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/ordinary/k8s-log-catcher/internal/aggregator/fanout"
-	"github.com/ordinary/k8s-log-catcher/internal/logfilter"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/aggregator/fanout"
+	"github.com/aribrilliantsyah/kapture/internal/logfilter"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 const (

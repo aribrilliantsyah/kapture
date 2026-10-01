@@ -1,4 +1,4 @@
-module github.com/ordinary/k8s-log-catcher
+module github.com/aribrilliantsyah/kapture
 
 go 1.26.0
 

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	badgerdb "github.com/dgraph-io/badger/v4"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 // The index keeps, next to the log lines themselves:

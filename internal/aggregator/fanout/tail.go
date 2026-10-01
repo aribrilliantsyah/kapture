@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 const (

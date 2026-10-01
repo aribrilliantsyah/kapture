@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/agent/enricher"
-	"github.com/ordinary/k8s-log-catcher/internal/config"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
-	"github.com/ordinary/k8s-log-catcher/internal/storage"
+	"github.com/aribrilliantsyah/kapture/internal/agent/enricher"
+	"github.com/aribrilliantsyah/kapture/internal/config"
+	"github.com/aribrilliantsyah/kapture/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/storage"
 )
 
 const (

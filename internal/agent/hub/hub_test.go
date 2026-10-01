@@ -3,8 +3,8 @@ package hub
 import (
 	"testing"
 
-	"github.com/ordinary/k8s-log-catcher/internal/logfilter"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/logfilter"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 func TestPublishFilters(t *testing.T) {

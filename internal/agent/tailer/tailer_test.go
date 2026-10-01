@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/config"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
-	badgerstore "github.com/ordinary/k8s-log-catcher/internal/storage/badger"
+	"github.com/aribrilliantsyah/kapture/internal/config"
+	"github.com/aribrilliantsyah/kapture/internal/model"
+	badgerstore "github.com/aribrilliantsyah/kapture/internal/storage/badger"
 )
 
 const cid = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"

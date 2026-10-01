@@ -12,7 +12,7 @@ import (
 
 	badgerdb "github.com/dgraph-io/badger/v4"
 	badgeropts "github.com/dgraph-io/badger/v4/options"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 const indexFlushInterval = 5 * time.Second

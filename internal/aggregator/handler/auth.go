@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ordinary/k8s-log-catcher/internal/auth"
+	"github.com/aribrilliantsyah/kapture/internal/auth"
 )
 
 // SessionCookie holds the signed session token. HttpOnly keeps it away from

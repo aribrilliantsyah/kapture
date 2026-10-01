@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/version"
+	"github.com/aribrilliantsyah/kapture/internal/version"
 )
 
 // A backup archive (.tar.gz) holds, per agent, its Badger backup stream split

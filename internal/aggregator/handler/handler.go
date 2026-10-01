@@ -8,11 +8,11 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/aggregator/fanout"
-	"github.com/ordinary/k8s-log-catcher/internal/auth"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
-	"github.com/ordinary/k8s-log-catcher/internal/version"
-	"github.com/ordinary/k8s-log-catcher/web"
+	"github.com/aribrilliantsyah/kapture/internal/aggregator/fanout"
+	"github.com/aribrilliantsyah/kapture/internal/auth"
+	"github.com/aribrilliantsyah/kapture/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/version"
+	"github.com/aribrilliantsyah/kapture/web"
 )
 
 // Handler serves the aggregator REST API and dashboard.

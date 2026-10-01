@@ -1,7 +1,7 @@
 .PHONY: build run-agent run-aggregator test clean docker docker-push release helm-lint helm-package testdata
 
 BINARY=kapture
-MODULE=github.com/ordinary/k8s-log-catcher
+MODULE=github.com/aribrilliantsyah/kapture
 VERSION ?= latest
 TIMEZONE ?= Asia/Jakarta
 APP_VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo dev)

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	badgerdb "github.com/dgraph-io/badger/v4"
-	"github.com/ordinary/k8s-log-catcher/internal/logfilter"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/logfilter"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 // Scan budget per request, so an unselective search cannot pin the agent.

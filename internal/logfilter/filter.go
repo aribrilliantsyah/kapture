@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/ordinary/k8s-log-catcher/internal/model"
-	"github.com/ordinary/k8s-log-catcher/internal/search"
+	"github.com/aribrilliantsyah/kapture/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/search"
 )
 
 // Filter is a compiled query.

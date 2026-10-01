@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/agent/hub"
-	"github.com/ordinary/k8s-log-catcher/internal/logfilter"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
-	"github.com/ordinary/k8s-log-catcher/internal/storage"
-	"github.com/ordinary/k8s-log-catcher/internal/version"
+	"github.com/aribrilliantsyah/kapture/internal/agent/hub"
+	"github.com/aribrilliantsyah/kapture/internal/logfilter"
+	"github.com/aribrilliantsyah/kapture/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/storage"
+	"github.com/aribrilliantsyah/kapture/internal/version"
 )
 
 // HTTPServer serves health endpoints and the local query API of an agent.

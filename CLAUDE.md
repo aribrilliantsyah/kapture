@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-**Kapture** (repo name `k8s-log-catcher`, Go module `github.com/ordinary/k8s-log-catcher`) keeps Kubernetes container logs that would otherwise be lost to rotation or pod replacement. One static binary runs in two modes:
+**Kapture** (Go module `github.com/aribrilliantsyah/kapture`) keeps Kubernetes container logs that would otherwise be lost to rotation or pod replacement. One static binary runs in two modes:
 
 - **agent** — DaemonSet, one per node. Tails `/var/log/containers/*.log`, parses and enriches lines, and stores them in an embedded BadgerDB on the node. Serves an **unauthenticated** internal HTTP API on `:19489`.
 - **aggregator** — Deployment. Discovers agents, fans each request out to all of them, merges the replies, and serves the REST API plus the embedded web dashboard on `:19488`. Handles all auth: password plus TOTP 2FA.

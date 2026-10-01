@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ordinary/k8s-log-catcher/internal/kube"
+	"github.com/aribrilliantsyah/kapture/internal/kube"
 )
 
 func TestResolverFollowsOwners(t *testing.T) {

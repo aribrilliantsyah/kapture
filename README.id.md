@@ -532,7 +532,7 @@ Konfigurasi dibaca dari variabel lingkungan (`KAPTURE_*`, dengan `LOG_CATCHER_*`
 ## Struktur Direktori
 
 ```
-k8s-log-catcher/
+kapture/
 ├── cmd/
 │   └── kapture/
 │       └── main.go                 # Entrypoint aplikasi (mode switch)

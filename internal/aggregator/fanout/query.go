@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/aggregator/discovery"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/aggregator/discovery"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 // Client fans requests out to every agent and merges the replies.

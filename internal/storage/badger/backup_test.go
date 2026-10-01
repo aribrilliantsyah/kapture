@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 func TestBackupRestoreAcrossZones(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/ordinary/k8s-log-catcher/internal/logfilter"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/logfilter"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 const subBuffer = 2048

@@ -10,7 +10,7 @@ COPY . .
 ARG VERSION=dev
 ARG COMMIT=
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w -X github.com/ordinary/k8s-log-catcher/internal/version.Version=${VERSION} -X github.com/ordinary/k8s-log-catcher/internal/version.Commit=${COMMIT}" \
+    -ldflags="-s -w -X github.com/aribrilliantsyah/kapture/internal/version.Version=${VERSION} -X github.com/aribrilliantsyah/kapture/internal/version.Commit=${COMMIT}" \
     -o /kapture ./cmd/kapture
 
 FROM alpine:3.20

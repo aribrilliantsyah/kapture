@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/aggregator/discovery"
-	"github.com/ordinary/k8s-log-catcher/internal/aggregator/fanout"
-	"github.com/ordinary/k8s-log-catcher/internal/aggregator/handler"
-	"github.com/ordinary/k8s-log-catcher/internal/auth"
-	"github.com/ordinary/k8s-log-catcher/internal/config"
-	"github.com/ordinary/k8s-log-catcher/web"
+	"github.com/aribrilliantsyah/kapture/internal/aggregator/discovery"
+	"github.com/aribrilliantsyah/kapture/internal/aggregator/fanout"
+	"github.com/aribrilliantsyah/kapture/internal/aggregator/handler"
+	"github.com/aribrilliantsyah/kapture/internal/auth"
+	"github.com/aribrilliantsyah/kapture/internal/config"
+	"github.com/aribrilliantsyah/kapture/web"
 )
 
 // Aggregator runs the query router and dashboard.

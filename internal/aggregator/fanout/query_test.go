@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/aggregator/discovery"
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/aggregator/discovery"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 func fakeAgent(t *testing.T, res model.QueryResult) string {

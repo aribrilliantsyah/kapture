@@ -3,7 +3,7 @@ package storage
 import (
 	"io"
 
-	"github.com/ordinary/k8s-log-catcher/internal/model"
+	"github.com/aribrilliantsyah/kapture/internal/model"
 )
 
 // Store defines the interface for log storage.

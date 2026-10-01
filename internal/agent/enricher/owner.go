@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ordinary/k8s-log-catcher/internal/kube"
+	"github.com/aribrilliantsyah/kapture/internal/kube"
 )
 
 const (

@@ -8,10 +8,10 @@ import (
 	"syscall"
 	_ "time/tzdata" // zone database inside the binary, no OS tzdata needed
 
-	"github.com/ordinary/k8s-log-catcher/internal/agent"
-	"github.com/ordinary/k8s-log-catcher/internal/aggregator"
-	"github.com/ordinary/k8s-log-catcher/internal/config"
-	"github.com/ordinary/k8s-log-catcher/internal/version"
+	"github.com/aribrilliantsyah/kapture/internal/agent"
+	"github.com/aribrilliantsyah/kapture/internal/aggregator"
+	"github.com/aribrilliantsyah/kapture/internal/config"
+	"github.com/aribrilliantsyah/kapture/internal/version"
 )
 
 func main() {
