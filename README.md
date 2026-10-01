@@ -19,6 +19,64 @@ Penangkap dan pengelola log Kubernetes mandiri, ultra-ringan, dan persisten. Men
 
 ---
 
+## Quick Start
+
+### Helm
+Untuk evaluasi cepat, install Kapture dari OCI registry ke namespace khusus:
+
+```bash
+helm install kapture oci://ghcr.io/aribrilliantsyah/charts/kapture \
+  --version 0.0.1 \
+  --namespace kapture \
+  --create-namespace
+```
+
+Forward service ke komputer lokal Anda:
+
+```bash
+kubectl port-forward --namespace kapture svc/kapture 19488:19488
+```
+
+Buka **[`http://localhost:19488`](http://localhost:19488)** di peramban Anda, buat administrator pertama, dan ikuti alur setup.
+
+> 💡 **Penting:** Nilai bawaan chart ditujukan untuk evaluasi. Sebelum menggunakan Kapture di lingkungan produksi, tentukan retensi log (`agent.storage.retention`), batas maksimal disk (`agent.storage.maxDisk`), dan aktifkan penyimpanan persisten (PVC) untuk aggregator jika berjalan di cluster multi-node.
+
+---
+
+### Opsi Instalasi Lainnya
+
+#### Docker
+Untuk menjalankan kontainer aggregator secara mandiri:
+
+```bash
+mkdir -p data
+docker run -d --name kapture \
+  -p 19488:19488 \
+  -v "$(pwd)/data:/data/kapture" \
+  -e KAPTURE_TIMEZONE=Asia/Jakarta \
+  ghcr.io/aribrilliantsyah/kapture:v0.0.1 --mode=aggregator
+```
+
+#### Kubernetes Manifest
+Manifest standalone siap pakai ditujukan untuk evaluasi cepat dan menyimpan data di node host:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/aribrilliantsyah/kapture/main/deploy/install.yaml
+kubectl port-forward --namespace kapture svc/kapture 19488:19488
+```
+
+#### Build from Source
+Membangun Kapture membutuhkan Go 1.22+ dan Make:
+
+```bash
+git clone https://github.com/aribrilliantsyah/kapture.git
+cd kapture
+make build
+./bin/kapture --mode=aggregator
+```
+
+---
+
 ## Kenapa Kapture
 
 Saat melakukan investigasi insiden di cluster Kubernetes pada jam 2 pagi, hal berikut hampir selalu terjadi:
@@ -122,9 +180,49 @@ Kapture menggunakan model **Distributed-Local Storage**. Log tidak dikirim bolak
 
 ## Deploy ke Kubernetes
 
-Semua konfigurasi (RBAC, DaemonSet Agent, Deployment Aggregator, dan Service) sudah disatukan ke dalam **satu berkas manifest siap pakai**.
+Kapture menyediakan beberapa metode deployment sesuai kebutuhan infrastruktur Anda:
 
-### Langkah 1: Siapkan Container Image
+1. **Helm Chart (OCI / GHCR)** — Paling direkomendasikan untuk produksi dan kemudahan kustomisasi (`values.yaml`).
+2. **Manifest Standalone Tunggal** (`deploy/install.yaml`) — Untuk evaluasi instan langsung via `kubectl apply -f https://raw.githubusercontent.com/...`.
+3. **Manifest Modular** (`deploy/*.yaml`) — Untuk kebutuhan kustomisasi manual atau pipa GitOps (ArgoCD/Flux).
+
+### Metode 1: Menggunakan Helm (Direkomendasikan)
+
+Instalasi langsung dari GitHub Container Registry tanpa perlu mengunduh repositori:
+
+```bash
+# Instalasi rilis publik
+helm install kapture oci://ghcr.io/aribrilliantsyah/charts/kapture \
+  --version 0.0.1 \
+  --namespace kapture \
+  --create-namespace
+```
+
+Atau menggunakan folder chart lokal di repo ini:
+
+```bash
+# Instalasi dari folder lokal charts/kapture
+helm install kapture ./charts/kapture \
+  --namespace kapture \
+  --create-namespace \
+  --set global.timezone="Asia/Jakarta"
+```
+
+---
+
+### Metode 2: Menggunakan Manifest Standalone
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/aribrilliantsyah/kapture/main/deploy/install.yaml
+```
+
+---
+
+### Metode 3: Menggunakan Manifest Modular (deploy/)
+
+Jika Anda membutuhkan kustomisasi mendalam pada berkas manifest individual atau untuk alur CI/CD:
+
+#### 1. Siapkan Container Image (Bila Menggunakan Registry Pribadi)
 
 Bangun dan unggah image Kapture ke registry container Anda (Docker Hub, GitHub Packages, atau private registry):
 
@@ -140,7 +238,7 @@ docker push your-registry/kapture:latest
 >
 > **Catatan:** Image yang digunakan untuk `agent` dan `aggregator` adalah **image yang sama persis**. Mode kerjanya ditentukan otomatis lewat argumen `--mode=agent` dan `--mode=aggregator`.
 
-### Langkah 2: Sesuaikan Manifest & Terapkan
+#### 2. Sesuaikan Manifest & Terapkan
 
 Manifest Kapture telah **dipisah secara modular** per tanggung jawab komponen agar mudah dikelola dalam GitOps/CI-CD:
 
@@ -177,7 +275,9 @@ kapture-agent-z7q1a                   1/1     Running   worker-node-2
 kapture-aggregator-5d8f9976f-w2k8m    1/1     Running   worker-node-1
 ```
 
-### Langkah 3: Akses Dashboard & Setup 2FA (Google Authenticator)
+---
+
+## Akses Dashboard & Setup 2FA (Google Authenticator)
 
 Lakukan *port-forwarding* ke service aggregator:
 
@@ -450,7 +550,10 @@ k8s-log-catcher/
 ├── web/
 │   ├── embed.go                    # Direktif go:embed untuk bundling UI
 │   └── static/                     # Aset dashboard web (HTML, CSS, JS, Icon)
+├── charts/
+│   └── kapture/                    # Helm Chart resmi (Chart.yaml, values.yaml, templates)
 ├── deploy/
+│   ├── install.yaml                # Manifest standalone tunggal publik (Quick Install)
 │   ├── 00-namespace.yaml           # Namespace isolasi kapture
 │   ├── 01-rbac.yaml                # Izin ClusterRole & ServiceAccount
 │   ├── 02-secret.yaml              # Kredensial awal admin
@@ -460,6 +563,7 @@ k8s-log-catcher/
 ├── build/
 │   └── appicon.svg                 # Ikon vektor aplikasi bergaya macOS
 ├── scripts/
+│   ├── release-ghcr.sh             # Pipeline rilis otomatis Docker & Helm ke GHCR
 │   └── generate-testdata.sh        # Generator simulasi log untuk pengujian
 ├── Dockerfile                      # Multi-stage container build (~15 MB)
 ├── Makefile                        # Otomasi build, test, dan dev runner

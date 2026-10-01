@@ -1,0 +1,238 @@
+# ==============================================================================
+# Kapture — Standalone Kubernetes Manifest (Quick Install)
+# Source: https://github.com/aribrilliantsyah/kapture
+# ==============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kapture
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kapture
+  namespace: kapture
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kapture
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kapture
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kapture
+subjects:
+  - kind: ServiceAccount
+    name: kapture
+    namespace: kapture
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kapture-auth
+  namespace: kapture
+type: Opaque
+stringData:
+  username: "admin"
+  password: "admin123"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kapture-agent
+  namespace: kapture
+  labels:
+    app: kapture
+    role: agent
+spec:
+  selector:
+    matchLabels:
+      app: kapture
+      role: agent
+  template:
+    metadata:
+      labels:
+        app: kapture
+        role: agent
+    spec:
+      serviceAccountName: kapture
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: agent
+          image: ghcr.io/aribrilliantsyah/kapture:v0.0.1
+          args: ["--mode=agent"]
+          env:
+            - name: KAPTURE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: KAPTURE_TIMEZONE
+              value: "Asia/Jakarta"
+            - name: KAPTURE_STORAGE_RETENTION
+              value: "0"
+            - name: KAPTURE_STORAGE_MAX_DISK
+              value: "5GB"
+            - name: KAPTURE_AGENT_PORT
+              value: "19489"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          ports:
+            - containerPort: 19489
+              name: http
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: data
+              mountPath: /data/kapture
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 19489
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 19489
+            periodSeconds: 10
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+            type: Directory
+        - name: data
+          hostPath:
+            path: /var/lib/kapture
+            type: DirectoryOrCreate
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kapture-aggregator
+  namespace: kapture
+  labels:
+    app: kapture
+    role: aggregator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kapture
+      role: aggregator
+  template:
+    metadata:
+      labels:
+        app: kapture
+        role: aggregator
+    spec:
+      serviceAccountName: kapture
+      containers:
+        - name: aggregator
+          image: ghcr.io/aribrilliantsyah/kapture:v0.0.1
+          args: ["--mode=aggregator"]
+          env:
+            - name: KAPTURE_DISCOVERY_METHOD
+              value: kubernetes
+            - name: KAPTURE_DISCOVERY_NAMESPACE
+              value: kapture
+            - name: KAPTURE_DISCOVERY_LABEL_SELECTOR
+              value: "app=kapture,role=agent"
+            - name: KAPTURE_DASHBOARD_PORT
+              value: "19488"
+            - name: KAPTURE_TIMEZONE
+              value: "Asia/Jakarta"
+            - name: KAPTURE_AUTH_ENABLED
+              value: "true"
+            - name: KAPTURE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kapture-auth
+                  key: username
+            - name: KAPTURE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kapture-auth
+                  key: password
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          ports:
+            - containerPort: 19488
+              name: dashboard
+          volumeMounts:
+            - name: auth-data
+              mountPath: /data/kapture
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 19488
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 19488
+            periodSeconds: 10
+      volumes:
+        - name: auth-data
+          hostPath:
+            path: /var/lib/kapture-aggregator
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kapture
+  namespace: kapture
+  labels:
+    app: kapture
+spec:
+  type: ClusterIP
+  selector:
+    app: kapture
+    role: aggregator
+  ports:
+    - port: 19488
+      targetPort: 19488
+      name: dashboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kapture-agents
+  namespace: kapture
+  labels:
+    app: kapture
+spec:
+  clusterIP: None
+  selector:
+    app: kapture
+    role: agent
+  ports:
+    - port: 19489
+      targetPort: 19489
+      name: http

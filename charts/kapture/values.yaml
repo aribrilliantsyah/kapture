@@ -1,0 +1,110 @@
+# Default values for kapture.
+# This is a YAML-formatted file.
+
+global:
+  # Zona waktu untuk pembagian log harian dan tampilan dashboard.
+  # Harus sama persis antara agent dan aggregator.
+  timezone: "Asia/Jakarta"
+
+image:
+  repository: ghcr.io/aribrilliantsyah/kapture
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+# Secret untuk menarik image private jika image tidak dibuat publik di GHCR.
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+rbac:
+  create: true
+
+# Konfigurasi autentikasi dashboard Kapture (login awal & 2FA).
+auth:
+  enabled: true
+  # Gunakan existingSecret jika kredensial sudah disimpan di K8s Secret lain.
+  # Secret harus memuat key: "username" dan "password".
+  existingSecret: ""
+  username: "admin"
+  password: "admin123"
+
+# Konfigurasi Kapture Agent (DaemonSet pengumpul log di setiap node).
+agent:
+  enabled: true
+  port: 19489
+  storage:
+    # "0" = simpan sampai batas disk (maxDisk) tercapai, atau contoh durasi "7d", "168h", "30d".
+    retention: "0"
+    # Batas maksimal database log BadgerDB lokal per node.
+    maxDisk: "5GB"
+    # Path penyimpanan di host node.
+    hostPath: "/var/lib/kapture"
+  # Aktifkan jika node Anda memakai container runtime Docker lama (cri-dockerd)
+  # yang menaruh symlink log ke /var/lib/docker/containers.
+  dockerRuntimeCompat: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  tolerations:
+    - operator: Exists
+  nodeSelector: {}
+  affinity: {}
+
+# Konfigurasi Kapture Aggregator (Deployment dashboard web & query router).
+aggregator:
+  replicaCount: 1
+  port: 19488
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  # Penyimpanan persisten untuk konfigurasi akun & 2FA (auth.json).
+  persistence:
+    enabled: true
+    # Pilihan type: "hostPath" atau "pvc".
+    # - "hostPath": cocok untuk cluster single-node atau jika nodeSelector dikunci ke 1 node tertentu.
+    # - "pvc": disarankan untuk multi-node cluster agar pod bisa berpindah node tanpa kehilangan data login.
+    type: hostPath
+    hostPath: "/var/lib/kapture-aggregator"
+    size: 1Gi
+    storageClassName: ""
+    accessModes:
+      - ReadWriteOnce
+  # Jika menggunakan hostPath di cluster multi-node, disarankan mengunci pod ke 1 node tetap
+  # agar data auth.json tidak tertinggal saat pod restart.
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Service untuk mengakses dashboard Kapture.
+service:
+  type: ClusterIP
+  port: 19488
+  nodePort: null
+  annotations: {}
+
+# Ingress untuk mengekspos dashboard Kapture ke domain luar.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: kapture.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

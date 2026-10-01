@@ -1,0 +1,20 @@
+{{- if .Values.agent.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kapture.fullname" . }}-agents
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kapture.labels" . | nindent 4 }}
+    app: {{ include "kapture.name" . }}
+    role: agent
+spec:
+  clusterIP: None
+  selector:
+    app: {{ include "kapture.name" . }}
+    role: agent
+  ports:
+    - port: {{ .Values.agent.port }}
+      targetPort: {{ .Values.agent.port }}
+      name: http
+{{- end }}

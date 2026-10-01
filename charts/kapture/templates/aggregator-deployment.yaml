@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kapture.fullname" . }}-aggregator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kapture.labels" . | nindent 4 }}
+    app: {{ include "kapture.name" . }}
+    role: aggregator
+spec:
+  replicas: {{ .Values.aggregator.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "kapture.name" . }}
+      role: aggregator
+  template:
+    metadata:
+      labels:
+        {{- include "kapture.selectorLabels" . | nindent 8 }}
+        app: {{ include "kapture.name" . }}
+        role: aggregator
+    spec:
+      serviceAccountName: {{ include "kapture.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aggregator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aggregator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aggregator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: aggregator
+          image: {{ include "kapture.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["--mode=aggregator"]
+          env:
+            - name: KAPTURE_DISCOVERY_METHOD
+              value: "kubernetes"
+            - name: KAPTURE_DISCOVERY_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: KAPTURE_DISCOVERY_LABEL_SELECTOR
+              value: "app={{ include "kapture.name" . }},role=agent"
+            - name: KAPTURE_DASHBOARD_PORT
+              value: {{ .Values.aggregator.port | quote }}
+            - name: KAPTURE_TIMEZONE
+              value: {{ .Values.global.timezone | quote }}
+            - name: KAPTURE_AUTH_ENABLED
+              value: {{ .Values.auth.enabled | quote }}
+            {{- if .Values.auth.enabled }}
+            - name: KAPTURE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kapture.authSecretName" . }}
+                  key: username
+            - name: KAPTURE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kapture.authSecretName" . }}
+                  key: password
+            {{- end }}
+          resources:
+            {{- toYaml .Values.aggregator.resources | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.aggregator.port }}
+              name: dashboard
+          volumeMounts:
+            - name: auth-data
+              mountPath: /data/kapture
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.aggregator.port }}
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.aggregator.port }}
+            periodSeconds: 10
+      volumes:
+        - name: auth-data
+          {{- if and .Values.aggregator.persistence.enabled (eq .Values.aggregator.persistence.type "pvc") }}
+          persistentVolumeClaim:
+            claimName: {{ include "kapture.fullname" . }}-auth
+          {{- else if and .Values.aggregator.persistence.enabled (eq .Values.aggregator.persistence.type "hostPath") }}
+          hostPath:
+            path: {{ .Values.aggregator.persistence.hostPath }}
+            type: DirectoryOrCreate
+          {{- else }}
+          emptyDir: {}
+          {{- end }}

@@ -1,4 +1,4 @@
-.PHONY: build run-agent run-aggregator test clean docker docker-push testdata
+.PHONY: build run-agent run-aggregator test clean docker docker-push release helm-lint helm-package testdata
 
 BINARY=kapture
 MODULE=github.com/ordinary/k8s-log-catcher
@@ -36,6 +36,16 @@ docker:
 
 docker-push:
 	@./scripts/build-and-push.sh $(VERSION)
+
+# Release container image & Helm chart to GHCR (default version: 0.0.1)
+release:
+	@./scripts/release-ghcr.sh $(VERSION)
+
+helm-lint:
+	helm lint charts/kapture
+
+helm-package:
+	helm package charts/kapture
 
 # Generate test log data
 testdata:

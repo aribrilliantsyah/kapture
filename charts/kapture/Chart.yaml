@@ -1,0 +1,19 @@
+apiVersion: v2
+name: kapture
+description: Kubernetes Application & Pod Tracking and Unified Resource Explorer - in-cluster container log catcher and dashboard.
+type: application
+version: 0.0.1
+appVersion: "v0.0.1"
+keywords:
+  - logging
+  - logs
+  - kubernetes
+  - observability
+  - dashboard
+home: https://github.com/aribrilliantsyah/kapture
+sources:
+  - https://github.com/aribrilliantsyah/kapture
+maintainers:
+  - name: ari-brilliantsyah
+    url: https://github.com/aribrilliantsyah
+icon: https://raw.githubusercontent.com/aribrilliantsyah/kapture/main/build/appicon.png

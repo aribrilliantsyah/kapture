@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kapture.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kapture.labels" . | nindent 4 }}
+    app: {{ include "kapture.name" . }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ include "kapture.name" . }}
+    role: aggregator
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.aggregator.port }}
+      name: dashboard
+      {{- if and (or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer")) .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}

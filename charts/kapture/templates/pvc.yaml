@@ -1,0 +1,18 @@
+{{- if and .Values.aggregator.persistence.enabled (eq .Values.aggregator.persistence.type "pvc") -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kapture.fullname" . }}-auth
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kapture.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.aggregator.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.aggregator.persistence.size | quote }}
+  {{- if .Values.aggregator.persistence.storageClassName }}
+  storageClassName: {{ .Values.aggregator.persistence.storageClassName | quote }}
+  {{- end }}
+{{- end }}
