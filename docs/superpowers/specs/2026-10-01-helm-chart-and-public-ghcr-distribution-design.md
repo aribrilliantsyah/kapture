@@ -208,18 +208,38 @@ service:
 
 ---
 
-## 4. Testing & Verification Plan
+## 4. Documentation Reorganization & Dedicated Helm Guide
 
-### 4.1 Local Chart Validation
+### 4.1 Root Directory Clean-up
+To keep the repository root clean, all standalone markdown files except `README.md` (`prd.md`, `MYSTANDARD.md`, `CLAUDE.md`) will be moved into `docs/` (or symlinked if needed for CLI tooling). The root will only display `README.md`.
+
+### 4.2 Dedicated Helm Guide (`docs/HELM_GUIDE.md`)
+A comprehensive, user-friendly markdown guide will be created in `docs/HELM_GUIDE.md` covering:
+- **Instant Quickstart:** Single command installation via OCI or local chart + port-forward instructions.
+- **How to Release/Push to Helm:**
+  - **Automated (Recommended):** How to trigger tag releases (`git tag v1.x.x && git push github v1.x.x`) to let GitHub Actions handle build, changelog, image push, and Helm OCI push.
+  - **Manual Push:** Step-by-step CLI instructions using `helm package` and `helm push ... oci://ghcr.io/...` with `echo $GITHUB_TOKEN | helm registry login ghcr.io`.
+- **Values Configuration Table:** Explaining every key parameter in `values.yaml` (timezone, auth, agent retention, resource limits, hostPaths).
+- **Uninstall / Upgrade Commands:** Clean instructions for upgrading and uninstalling the Helm release.
+
+---
+
+## 5. Testing & Verification Plan
+
+### 5.1 Local Chart Validation
 - Run `helm lint charts/kapture` to verify syntax and standard compliance.
 - Run `helm template test-release charts/kapture --debug` to verify all rendered manifests (DaemonSet, Deployment, Services, RBAC, Secret) match the validated manifests in `deploy/`.
 - Test parameter overrides (e.g. `--set auth.password=customPass --set global.timezone=UTC`).
 
-### 4.2 Workflow Syntax Verification
+### 5.2 Workflow Syntax Verification
 - Validate `.github/workflows/release.yaml` against GitHub Actions schema.
 - Confirm correct token permissions (`contents: write`, `packages: write`).
 
-### 4.3 End-to-End User Experience Verification
+### 5.3 Documentation & File Verification
+- Verify root contains only `README.md` among markdown files.
+- Verify `docs/HELM_GUIDE.md` contains accurate push, release, and installation instructions.
+
+### 5.4 End-to-End User Experience Verification
 - User runs:
   ```bash
   helm install kapture ./charts/kapture
