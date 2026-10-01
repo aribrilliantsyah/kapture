@@ -6,7 +6,7 @@
 
 **Kubernetes Application & Pod Tracking and Unified Resource Explorer**
 
-Penangkap dan pengelola log Kubernetes mandiri, ultra-ringan, dan persisten. Menyimpan riwayat log container berhari-hari tanpa membebani server dan tanpa ketergantungan stack berat (ELK/Loki), dilengkapi dashboard bawaan yang responsif serta kendali reset instan.
+Autonomous, ultra-lightweight, and persistent Kubernetes container log manager. Retains days of container logs locally without burdening cluster resources or requiring heavy stacks (ELK/Loki), featuring a responsive embedded web dashboard and instant reset controls.
 
 [![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat&logo=go&logoColor=white)](https://go.dev)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-CRI--Native-326CE5?style=flat&logo=kubernetes&logoColor=white)](https://kubernetes.io)
@@ -15,6 +15,11 @@ Penangkap dan pengelola log Kubernetes mandiri, ultra-ringan, dan persisten. Men
 [![Zero External DB](https://img.shields.io/badge/Dependencies-Zero-brightgreen?style=flat)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+<p align="center">
+  <b>English</b> •
+  <a href="README.id.md">Bahasa Indonesia</a>
+</p>
+
 </div>
 
 ---
@@ -22,7 +27,7 @@ Penangkap dan pengelola log Kubernetes mandiri, ultra-ringan, dan persisten. Men
 ## Quick Start
 
 ### Helm
-Untuk evaluasi cepat, install Kapture dari OCI registry ke namespace khusus:
+For a quick evaluation or production deployment, install Kapture from the GitHub OCI registry into a dedicated namespace:
 
 ```bash
 helm install kapture oci://ghcr.io/aribrilliantsyah/charts/kapture \
@@ -31,22 +36,22 @@ helm install kapture oci://ghcr.io/aribrilliantsyah/charts/kapture \
   --create-namespace
 ```
 
-Forward service ke komputer lokal Anda:
+Forward the service to your local machine:
 
 ```bash
 kubectl port-forward --namespace kapture svc/kapture 19488:19488
 ```
 
-Buka **[`http://localhost:19488`](http://localhost:19488)** di peramban Anda, buat administrator pertama, dan ikuti alur setup.
+Open **[`http://localhost:19488`](http://localhost:19488)** in your browser, create the first administrator, and follow the 2FA setup wizard.
 
-> 💡 **Penting:** Nilai bawaan chart ditujukan untuk evaluasi. Sebelum menggunakan Kapture di lingkungan produksi, tentukan retensi log (`agent.storage.retention`), batas maksimal disk (`agent.storage.maxDisk`), dan aktifkan penyimpanan persisten (PVC) untuk aggregator jika berjalan di cluster multi-node.
+> 💡 **Important:** The default chart values are suitable for evaluation and development. Before using Kapture in production, configure log retention (`agent.storage.retention`), disk capacity limit (`agent.storage.maxDisk`), timezone (`global.timezone`), and enable persistent storage (PVC) for the aggregator on multi-node clusters.
 
 ---
 
-### Opsi Instalasi Lainnya
+### Other Installation Options
 
 #### Docker
-Untuk menjalankan kontainer aggregator secara mandiri:
+To run an isolated aggregator container for exploration or testing:
 
 ```bash
 mkdir -p data
@@ -58,7 +63,7 @@ docker run -d --name kapture \
 ```
 
 #### Kubernetes Manifest
-Manifest standalone siap pakai ditujukan untuk evaluasi cepat dan menyimpan data di node host:
+A standalone manifest intended for evaluation, ready to apply directly from GitHub:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/aribrilliantsyah/kapture/main/deploy/install.yaml
@@ -66,7 +71,7 @@ kubectl port-forward --namespace kapture svc/kapture 19488:19488
 ```
 
 #### Build from Source
-Membangun Kapture membutuhkan Go 1.22+ dan Make:
+Building Kapture from source requires Go 1.22+ and Make:
 
 ```bash
 git clone https://github.com/aribrilliantsyah/kapture.git
@@ -77,60 +82,60 @@ make build
 
 ---
 
-## Kenapa Kapture
+## Why Kapture
 
-Saat melakukan investigasi insiden di cluster Kubernetes pada jam 2 pagi, hal berikut hampir selalu terjadi:
+During a 2:00 AM production incident investigation in a Kubernetes cluster, this almost always happens:
 
 ```bash
 $ kubectl logs api-server-7f8b9c-x2k1p
-# Hanya memuat beberapa baris terakhir...
+# Only loads the last few lines...
 
 $ kubectl logs api-server-7f8b9c-x2k1p --previous
 # Error from server (BadRequest): previous terminated container not found...
 ```
 
-1. **Log pod yang restart atau terminated langsung musnah.**
-2. **Log rotate bawaan kubelet** (default 10MB × 5 file) dengan cepat menimpa histori beberapa hari ke belakang.
-3. **Solusi umum (ELK Stack atau Loki + Grafana)** membutuhkan setidaknya 2–4 GB RAM per node, konfigurasi rumit, dan membebani resource server secara konstan.
+1. **Restarted or terminated pod logs vanish immediately.**
+2. **Kubelet's default log rotation** (typically 10MB × 5 files) rapidly overwrites history from earlier in the week.
+3. **Common solutions (ELK Stack or Loki + Grafana)** require 2–4 GB RAM per node, intricate configurations, and constantly strain cluster compute resources.
 
-**Kapture** dirancang untuk menyelesaikan dilema ini dengan cara yang sangat efisien:
-- **Membaca langsung dari berkas lokal** (`/var/log/containers/*.log`) yang sudah ditulis kubelet menggunakan kernel *inotify*. Tidak ada overhead API call ke K8s API server.
-- **Tersimpan per tanggal** di engine embedded lokal (BadgerDB v4) dengan kompresi data hemat ruang.
-- **Ringan dan hening di background** — hanya butuh memori ~64 MB dan CPU idle <1%.
-- **Kendali penuh ukuran disk** — database dapat dibersihkan per tanggal, per namespace, atau di-reset total kapan saja lewat satu klik di dashboard tanpa perlu restart pod.
-
----
-
-## Fitur Unggulan
-
-- **100% Service & Workload Agnostic** — Tangkap log dari workload apa saja tanpa konfigurasi per-service: Deployment, StatefulSet, DaemonSet, Job, CronJob, Init Container, Sidecar (Envoy/Istio), hingga Operator CRD kustom.
-- **Replica-Aware & Grouping Cerdas** — Secara otomatis mengenali pola penamaan pod Kubernetes. Log dari 5 replica `api-server` dapat dilihat bersamaan (merged & time-aligned) atau diisolasi per individual pod.
-- **Penyimpanan Berbasis Tanggal (Date-First Architecture)** — Log diindeks dengan prefix tanggal (`YYYY-MM-DD`). Sangat cepat untuk mencari insiden kemarin, 3 hari lalu, atau 1 minggu yang lalu.
-- **Tombol Reset & Purge Seketika** — Khawatir log membengkak? Tersedia auto-retention (default 7 hari), batas disk hard-limit, serta tombol **Reset All Logs** di antarmuka web untuk mengosongkan database seketika.
-- **Dashboard Web Bawaan (Embedded Single-Binary)** — Antarmuka web modern dengan tema gelap (dark mode), live-tail real-time, filter autocomplete, dan rincian log stack-trace. Tidak butuh instalasi Node.js atau web server terpisah.
-- **Filter Analitik Multidimensi** — Saring data berdasarkan:
-  - Rentang Tanggal & Jam
-  - Namespace & Workload
-  - Pod & Container
-  - Tingkat Keparahan (`DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`)
-  - Pencarian Teks Bebas & Regex (`/timeout.*after \d+ms/`)
-- **Autentikasi 2FA Universal (Google Authenticator)** — Dilindungi sistem login berstandar industri dengan Time-based One-Time Password (TOTP, RFC 6238). Wizard setup awal menyajikan QR code untuk dipindai langsung via Google Authenticator atau Authy. Setiap sesi dashboard berikutnya wajib diverifikasi dengan kode OTP 6-digit.
-- **Manajemen Pengguna (Admin & Operasional)** — Banyak akun dengan dua peran: **Admin** (termasuk kelola pengguna) dan **Operasional** (semua fitur kecuali kelola pengguna). Admin bisa memulihkan sendiri password atau 2FA lewat pertanyaan keamanan; akun operasional di-reset oleh admin. Menu **Profile** untuk ubah nama, password, dan menampilkan ulang QR 2FA saat ganti HP.
-- **Backup & Restore** — Unduh log semua node sebagai satu berkas `.tar.gz` (bisa dibatasi rentang tanggal), lalu restore ke Kapture yang sama atau ke Kapture lain, misalnya di laptop untuk investigasi offline.
-- **Warna Terminal di Log** — Log yang berisi kode warna ANSI (mis. Spring Boot) ditampilkan berwarna, bukan karakter aneh; level `ERROR`/`WARN` tetap terdeteksi.
-- **Ekspor Cepat** — Unduh hasil filter langsung dalam format **JSON** atau **CSV** untuk kebutuhan audit dan laporan tim.
-- **Live Tail via WebSocket, Histogram & Compare** — Log baru didorong real-time (agent → aggregator → browser, tetap satu image), klik batang histogram volume untuk zoom ke rentang waktu itu, dan bandingkan 2 replica berdampingan dengan scroll yang tersinkron berdasarkan timestamp.
-- **Riwayat per Workload, bukan per Pod** — Agent mengikuti `ownerReferences` (Pod → ReplicaSet → Deployment, Job → CronJob) lewat Kubernetes API. Setiap rollout memberi nama pod baru, tetapi lognya tetap dikelompokkan di bawah Deployment yang sama; tab **Pods** menampilkan semua generasi pod beserta ReplicaSet-nya.
-- **Waktu Lokal (mis. WIB)** — Dengan `KAPTURE_TIMEZONE=Asia/Jakarta`, log dikelompokkan per tanggal WIB dan semua jam di dashboard ditampilkan dalam WIB, apa pun zona waktu browser, sehingga cocok dengan jam yang dicetak aplikasi. Waktu diambil dari timestamp container runtime, jadi zona waktu aplikasi (mis. JVM) tidak berpengaruh. Mengganti zona waktu memindahkan log yang sudah tersimpan ke tanggal lokalnya sekali saat agent start.
-- **Dashboard Rekap** — Volume harian 14 hari per level, sumber error teratas, workload tersibuk, dan error terbaru. Rekap harian disimpan sebagai indeks sehingga tidak perlu memindai log.
-- **Sintaks Pencarian** — `timeout database` (AND), `error OR warning`, `error -healthcheck`, `"connection refused"`, `/failed.*\d+ retries/`, serta filter field `ns:` `workload:` `pod:` `c:` `level:`.
-- **Zero External Dependencies** — Berjalan sebagai satu binary murni Go (`~13 MB`). Tidak perlu Elasticsearch, Postgres, Redis, atau Fluentd.
+**Kapture** was engineered to solve this dilemma with minimal footprint:
+- **Direct local file tailing** (`/var/log/containers/*.log`) already written by kubelet via kernel *inotify*. Zero API call overhead to the Kubernetes API server.
+- **Date-partitioned storage** in an embedded local engine (BadgerDB v4) with Snappy compression.
+- **Lightweight & silent in the background** — consumes only ~64 MB memory and <1% idle CPU.
+- **Complete disk control** — databases can be purged by date, by namespace, or reset completely with a single click in the dashboard without pod restarts.
 
 ---
 
-## Arsitektur: Bagaimana Kapture Bekerja?
+## Key Features
 
-Kapture menggunakan model **Distributed-Local Storage**. Log tidak dikirim bolak-balik via jaringan ke database terpusat, melainkan disimpan secara lokal di node tempat pod berjalan. Komponen Aggregator hanya bertindak sebagai *query router* saat Anda membuka dashboard.
+- **100% Service & Workload Agnostic** — Captures logs from any workload without per-service configuration: Deployments, StatefulSets, DaemonSets, Jobs, CronJobs, Init Containers, Sidecars (Envoy/Istio), and custom CRD operators.
+- **Replica-Aware & Smart Grouping** — Intelligently parses Kubernetes pod naming conventions. View logs across 5 `api-server` replicas simultaneously (merged & time-aligned) or isolate individual pods.
+- **Date-First Storage Architecture** — Indexed by date prefix (`YYYY-MM-DD`). Instant query performance whether inspecting incidents from yesterday, 3 days ago, or last week.
+- **Instant Purge & Reset Controls** — Configurable auto-retention (default: retain until disk cap), hard disk limits, and a one-click **Reset All Logs** action in the web UI.
+- **Embedded Web Dashboard (Single-Binary)** — Modern dark-mode interface with live-tail streaming, autocomplete filters, and stack-trace expansion. No Node.js or separate web server needed.
+- **Multi-Dimensional Analytics Filtering** — Filter records across:
+  - Date & Time Ranges
+  - Namespaces & Workloads
+  - Pods & Containers
+  - Severity Levels (`DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`)
+  - Full-Text & Regular Expressions (`/timeout.*after \d+ms/`)
+- **Universal 2FA Authentication (TOTP)** — Enterprise-grade security with Time-based One-Time Passwords (RFC 6238). First-run wizard provides a QR code for Google Authenticator, Authy, or password managers. Subsequent sessions require 6-digit OTP verification.
+- **Multi-User Management (Admin & Operator)** — Multi-account support with two roles: **Admin** (full access + user management) and **Operator** (read-only administration, full dashboard access). Admins can self-recover passwords or 2FA via security questions.
+- **Backup & Restore** — Download logs across all nodes as a single `.tar.gz` archive (optionally bounded by date ranges), then restore to the same or a different Kapture instance (e.g. locally on your laptop for offline debugging).
+- **ANSI Color Terminal Rendering** — Logs containing ANSI escape codes (e.g. Spring Boot) are rendered in rich colors rather than broken characters; `ERROR` and `WARN` severity detection remains accurate.
+- **Quick Export** — Download filtered queries instantly in **JSON** or **CSV** formats for auditing and incident reports.
+- **WebSocket Live Tail, Histogram & Compare View** — Real-time log streaming (agent → aggregator → browser), clickable volume histogram bars to zoom into time windows, and side-by-side replica comparisons with synchronized timestamps.
+- **Workload-Centric History** — Agents resolve pod `ownerReferences` (Pod → ReplicaSet → Deployment, Job → CronJob) via the Kubernetes API. Rollouts produce new pod names, but logs stay categorized under the parent Deployment.
+- **Local Timezone Support** — With `KAPTURE_TIMEZONE=Asia/Jakarta`, logs partition by local calendar days and dashboard timestamps display in local time regardless of browser timezone.
+- **Recap Analytics Dashboard** — 14-day volume histograms per level, top error sources, busiest workloads, and latest errors without full log scans.
+- **Search Query Syntax** — `timeout database` (AND), `error OR warning`, `error -healthcheck`, `"connection refused"`, `/failed.*\d+ retries/`, and field filters (`ns:`, `workload:`, `pod:`, `c:`, `level:`).
+- **Zero External Dependencies** — Single static Go binary (~13 MB). No Elasticsearch, Postgres, Redis, or Fluentd required.
+
+---
+
+## Architecture: How Kapture Works
+
+Kapture utilizes a **Distributed-Local Storage** architecture. Logs are never shipped continuously over the network to a central database; they remain stored locally on the worker node where the container runs. The Aggregator component functions solely as a *query router* when you interact with the dashboard.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -148,19 +153,19 @@ Kapture menggunakan model **Distributed-Local Storage**. Log tidak dikirim bolak
 │  │  │  Kapture Agent          │  │        │  │  Kapture Agent          │  │ │
 │  │  │  (DaemonSet Pod)        │  │        │  │  (DaemonSet Pod)        │  │ │
 │  │  │  • Tailer & CRI Parser  │  │        │  │  • Tailer & CRI Parser  │  │ │
-│  │  │  • BadgerDB (lokal node)│  │        │  │  • BadgerDB (lokal node)│  │ │
+│  │  │  • BadgerDB (node-local)│  │        │  │  • BadgerDB (node-local)│  │ │
 │  │  └────────────┬────────────┘  │        │  └────────────┬────────────┘  │ │
 │  └───────────────┼───────────────┘        └───────────────┼───────────────┘ │
 │                  │                                        │                 │
 │                  └───────────────────┬────────────────────┘                 │
-│                                      │ (HTTP Internal)                      │
+│                                      │ (Internal HTTP)                      │
 │                                      ▼                                      │
 │                      ┌─────────────────────────────────┐                    │
 │                      │  Kapture Aggregator             │                    │
 │                      │  (Deployment, 1 Pod)            │                    │
-│                      │  • Menemukan agent otomatis     │                    │
-│                      │  • Fan-out query & merge sort   │                    │
-│                      │  • Menyajikan Web Dashboard     │                    │
+│                      │  • Auto-discovers agents        │                    │
+│                      │  • Fan-out query & merge-sort   │                    │
+│                      │  • Serves Web Dashboard & API   │                    │
 │                      └────────────────┬────────────────┘                    │
 │                                       │                                     │
 └───────────────────────────────────────┼─────────────────────────────────────┘
@@ -169,39 +174,39 @@ Kapture menggunakan model **Distributed-Local Storage**. Log tidak dikirim bolak
                             Browser / Web Dashboard
 ```
 
-### 2 Peran dalam 1 Binary:
+### 2 Roles in 1 Binary:
 
-| Peran | Pola Deployment | Lokasi Berjalan | Fungsi Utama |
+| Role | Deployment Pattern | Location | Primary Responsibility |
 |---|---|---|---|
-| **`agent`** | **DaemonSet** (1 pod per node) | Di **seluruh node** (Master & Worker) | Memantau `/var/log/containers/*.log`, mem-parse metadata, dan menyimpan batch ke BadgerDB lokal di node tersebut. |
-| **`aggregator`** | **Deployment** (1 replica saja) | Di salah satu node (dipilih otomatis oleh scheduler K8s) | Mengarahkan pencarian ke seluruh agent, menggabungkan hasil log secara urut waktu (*merge-sort*), dan melayani dashboard web. |
+| **`agent`** | **DaemonSet** (1 pod per node) | **Every node** (Control Plane & Workers) | Watches `/var/log/containers/*.log`, parses metadata, and writes batches to the node-local BadgerDB. |
+| **`aggregator`** | **Deployment** (1 replica) | Any worker node (scheduled by K8s) | Fans queries out to all agents, merge-sorts results chronologically, and serves the web dashboard & API. |
 
 ---
 
-## Deploy ke Kubernetes
+## Deploy to Kubernetes
 
-Kapture menyediakan beberapa metode deployment sesuai kebutuhan infrastruktur Anda:
+Kapture offers flexible deployment methods tailored to your infrastructure needs:
 
-1. **Helm Chart (OCI / GHCR)** — Paling direkomendasikan untuk produksi dan kemudahan kustomisasi (`values.yaml`).
-2. **Manifest Standalone Tunggal** (`deploy/install.yaml`) — Untuk evaluasi instan langsung via `kubectl apply -f https://raw.githubusercontent.com/...`.
-3. **Manifest Modular** (`deploy/*.yaml`) — Untuk kebutuhan kustomisasi manual atau pipa GitOps (ArgoCD/Flux).
+1. **Helm Chart (OCI / GHCR)** — Recommended for production and simplified configuration management (`values.yaml`).
+2. **Standalone Manifest** (`deploy/install.yaml`) — Instant evaluation via `kubectl apply -f https://raw.githubusercontent.com/...`.
+3. **Modular Manifests** (`deploy/*.yaml`) — For GitOps pipelines (ArgoCD/Flux) and manual customization.
 
-### Metode 1: Menggunakan Helm (Direkomendasikan)
+### Method 1: Using Helm (Recommended)
 
-Instalasi langsung dari GitHub Container Registry tanpa perlu mengunduh repositori:
+Install directly from the GitHub Container Registry without cloning the repository:
 
 ```bash
-# Instalasi rilis publik
+# Public OCI install
 helm install kapture oci://ghcr.io/aribrilliantsyah/charts/kapture \
   --version 0.0.1 \
   --namespace kapture \
   --create-namespace
 ```
 
-Atau menggunakan folder chart lokal di repo ini:
+Or install using the local chart in this repository:
 
 ```bash
-# Instalasi dari folder lokal charts/kapture
+# Install from local charts/kapture directory
 helm install kapture ./charts/kapture \
   --namespace kapture \
   --create-namespace \
@@ -210,7 +215,7 @@ helm install kapture ./charts/kapture \
 
 ---
 
-### Metode 2: Menggunakan Manifest Standalone
+### Method 2: Using the Standalone Manifest
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/aribrilliantsyah/kapture/main/deploy/install.yaml
@@ -218,55 +223,52 @@ kubectl apply -f https://raw.githubusercontent.com/aribrilliantsyah/kapture/main
 
 ---
 
-### Metode 3: Menggunakan Manifest Modular (deploy/)
+### Method 3: Using Modular Manifests (deploy/)
 
-Jika Anda membutuhkan kustomisasi mendalam pada berkas manifest individual atau untuk alur CI/CD:
+If you need granular customization across individual resource files:
 
-#### 1. Siapkan Container Image (Bila Menggunakan Registry Pribadi)
+#### 1. Prepare Container Image (If Using a Private Registry)
 
-Bangun dan unggah image Kapture ke registry container Anda (Docker Hub, GitHub Packages, atau private registry):
+Build and push the Kapture image to your container registry (Docker Hub, GitHub Packages, or private registry):
 
 ```bash
 # 1. Build binary container
 docker build -t your-registry/kapture:latest .
 
-# 2. Push ke registry
+# 2. Push to registry
 docker push your-registry/kapture:latest
 ```
 
-> 📖 **Panduan Lengkap Registry:** Kunjungi **[`docs/CONTAINER_REGISTRY_GUIDE.md`](docs/CONTAINER_REGISTRY_GUIDE.md)** untuk petunjuk lengkap langkah demi langkah mengunggah image ke **Docker Hub, GitHub Container Registry (GHCR), Harbor, AWS ECR, GCP GAR**, serta panduan multi-architecture build (`linux/amd64` dan `linux/arm64`).
+> 📖 **Registry Guide:** See **[`docs/CONTAINER_REGISTRY_GUIDE.md`](docs/CONTAINER_REGISTRY_GUIDE.md)** for detailed instructions on pushing to **Docker Hub, GitHub Container Registry (GHCR), Harbor, AWS ECR, and GCP GAR**, including multi-arch builds (`linux/amd64` and `linux/arm64`).
 >
-> **Catatan:** Image yang digunakan untuk `agent` dan `aggregator` adalah **image yang sama persis**. Mode kerjanya ditentukan otomatis lewat argumen `--mode=agent` dan `--mode=aggregator`.
+> **Note:** The `agent` and `aggregator` share the **exact same container image**. Execution mode is determined by `--mode=agent` and `--mode=aggregator` arguments.
 
-#### 2. Sesuaikan Manifest & Terapkan
+#### 2. Apply Manifests
 
-Manifest Kapture telah **dipisah secara modular** per tanggung jawab komponen agar mudah dikelola dalam GitOps/CI-CD:
+The manifests in `deploy/` are modularly organized:
 
-| Berkas | Jenis Sumber Daya | Fungsi |
+| File | Resource Type | Description |
 |---|---|---|
-| `00-namespace.yaml` | `Namespace` | Ruang isolasi `kapture` |
-| `01-rbac.yaml` | `ClusterRole`, `Binding` | Izin akses membaca metadata pod/namespace |
-| `02-secret.yaml` | `Secret` | Kredensial awal admin |
-| `03-agent-daemonset.yaml` | `DaemonSet` | Pengumpul log di setiap node host |
-| `04-aggregator-deployment.yaml` | `Deployment` | Dashboard web & router query |
-| `05-service.yaml` | `Service` | Endpoint akses dashboard & headless discovery |
+| `00-namespace.yaml` | `Namespace` | `kapture` namespace isolation |
+| `01-rbac.yaml` | `ClusterRole`, `Binding` | Permissions to read pod and namespace metadata |
+| `02-secret.yaml` | `Secret` | Initial admin credentials |
+| `03-agent-daemonset.yaml` | `DaemonSet` | Node-level log collectors |
+| `04-aggregator-deployment.yaml` | `Deployment` | Web dashboard & query router |
+| `05-service.yaml` | `Service` | Dashboard access endpoint & headless discovery |
 
-Cukup sesuaikan nama image di `03-agent-daemonset.yaml` dan `04-aggregator-deployment.yaml`, lalu terapkan sekaligus dari workstation/master:
+Adjust the image names in `03-agent-daemonset.yaml` and `04-aggregator-deployment.yaml`, then apply:
 
 ```bash
-# Terapkan seluruh direktori deploy (otomatis terurut):
 kubectl apply -f deploy/
 ```
 
-> 🏢 **Panduan Internal:** Untuk langkah lengkap di cluster internal (membuat secret `gitlab-auth` lebih dulu, mengunci aggregator di node tertentu agar akun dashboard tidak hilang, upgrade versi, backup, dan troubleshooting), lihat **[`docs/INTERNAL_K8S_USAGE.md`](docs/INTERNAL_K8S_USAGE.md)**.
-
-Verifikasi pod berjalan:
+Verify running pods:
 
 ```bash
 kubectl get pods -n kapture -o wide
 ```
 
-Hasilnya akan menampilkan **1 agent di setiap node** dan **1 aggregator pod**:
+Output should show **1 agent per node** and **1 aggregator pod**:
 ```text
 NAME                                  READY   STATUS    NODE
 kapture-agent-4j2x1                   1/1     Running   master-node
@@ -277,115 +279,97 @@ kapture-aggregator-5d8f9976f-w2k8m    1/1     Running   worker-node-1
 
 ---
 
-## Akses Dashboard & Setup 2FA (Google Authenticator)
+## Dashboard Access & 2FA Setup
 
-Lakukan *port-forwarding* ke service aggregator:
+Port-forward the aggregator service to your workstation:
 
 ```bash
 kubectl port-forward -n kapture svc/kapture 19488:19488
 ```
 
-Buka peramban Anda di: **[`http://localhost:19488`](http://localhost:19488)**
+Open your browser at: **[`http://localhost:19488`](http://localhost:19488)**
 
-Variasi yang sering dipakai:
+Common port-forwarding patterns:
 
 ```bash
-# Port lokal lain (mis. 19488 sudah terpakai): buka http://localhost:8080
+# Custom local port (e.g. 8080): open http://localhost:8080
 kubectl port-forward -n kapture svc/kapture 8080:19488
 
-# Jalan di background, hentikan dengan: kill %1 (atau pkill -f "port-forward -n kapture")
+# Run in background; stop with: kill %1 (or pkill -f "port-forward -n kapture")
 kubectl port-forward -n kapture svc/kapture 19488:19488 >/dev/null 2>&1 &
 
-# Bisa diakses dari komputer lain di jaringan yang sama (bind ke semua interface)
+# Bind to all interfaces for remote access across a private LAN
 kubectl port-forward -n kapture --address 0.0.0.0 svc/kapture 19488:19488
 
-# Pakai kubeconfig / context tertentu
+# Target specific kubeconfig context
 kubectl --context prod-cluster port-forward -n kapture svc/kapture 19488:19488
 
-# Debug satu agent secara langsung (API agent tanpa login, port 19489)
-kubectl get pods -n kapture -l role=agent -o wide        # pilih pod di node yang dicari
-kubectl port-forward -n kapture pod/<nama-pod-agent> 19489:19489
+# Directly debug an agent (unauthenticated agent API on port 19489)
+kubectl port-forward -n kapture pod/<agent-pod-name> 19489:19489
 curl http://localhost:19489/healthz
 ```
 
-> Koneksi `port-forward` putus bila pod aggregator restart. Jalankan ulang perintahnya. Live tail di dashboard tersambung kembali otomatis setelah forward aktif lagi.
+#### 1. Initial Setup (First-Time Onboarding)
+Upon accessing the dashboard for the first time, Kapture presents a 3-step setup wizard:
+1. **Administrator Account:** Set your initial Username and Password. Passwords must be at least 8 characters and include lowercase, uppercase, digit, and symbol characters (e.g. `Qawsed#1477`).
+2. **Recovery Question:** Choose a security question and provide an answer (case-insensitive) for password or 2FA reset recovery.
+3. **Scan 2FA QR Code:** Scan the QR code using **Google Authenticator**, **Authy**, or your preferred authenticator app, then submit the 6-digit confirmation code.
 
-#### 1. Setup Awal (Onboarding Pertama Kali)
-Saat pertama kali membuka dashboard, Kapture akan menampilkan halaman **Setup Awal** (3 langkah):
-1. **Akun Administrator:** Masukkan Username dan Password baru. Password wajib minimal 8 karakter dan memuat huruf kecil, huruf besar, angka, dan simbol (contoh `Qawsed#1477`). Aturan ini berlaku untuk semua password: setup, pengguna baru, reset, dan ganti password.
-2. **Pertanyaan Pemulihan:** Pilih satu pertanyaan keamanan dan isi jawabannya (tidak peka huruf besar/kecil). Dipakai untuk memulihkan password atau 2FA yang hilang.
-3. **Scan QR Code 2FA:** Pindai kode QR dengan **Google Authenticator**, **Authy**, **Microsoft Authenticator**, atau pengelola kata sandi favorit Anda, lalu masukkan 6-digit kodenya.
+Credentials, 2FA secrets, and hashed recovery answers (bcrypt) are persisted in the aggregator's volume (`/data/kapture/auth.json`).
 
-Akun, kunci 2FA, dan jawaban pemulihan (di-hash bcrypt) disimpan di volume persisten Kapture (`/data/kapture/auth.json`), sehingga tidak hilang saat pod di-*restart*. Berkas lama (satu admin) otomatis dimigrasikan; pengguna cukup login ulang sekali.
+#### 2. Ongoing Authentication
+1. **Credentials:** Username and Password (bcrypt).
+2. **2FA Code:** 6-digit code from your authenticator app.
+3. **Active Sessions:** HMAC-signed `HttpOnly` session cookie valid for **30 days** (auto-renewed, survives aggregator restarts).
+4. **Rate Limiting:** After 5 failed attempts within 10 minutes, the client IP and username are locked for 5 minutes. For automated scripts, `POST /api/v1/auth/login` accepts `{username, password, code}` and returns a Bearer token.
 
-#### 2. Login Seterusnya (Alur Bertahap)
-1. **Kredensial:** Username dan Password (bcrypt).
-2. **Kode 2FA:** 6-digit kode dari aplikasi authenticator.
-3. **Langkah tambahan bila perlu:** akun baru atau yang password-nya di-reset admin wajib **mengganti password**; akun yang 2FA-nya di-reset wajib **scan QR baru**.
-4. **Sesi Aktif:** cookie sesi `HttpOnly` yang ditandatangani (HMAC). Berlaku **30 hari**, diperpanjang otomatis, **tetap valid walau aggregator restart**. Ganti password atau reset oleh admin mengakhiri semua sesi akun itu.
-
-Setiap langkah login berlaku 5 menit. Jika kedaluwarsa, halaman kembali ke form password dengan pesan penjelasan. Setelah 5 kali gagal, klien (dan akun) dikunci 5 menit; kode TOTP yang sudah dipakai tidak bisa dipakai ulang. Untuk skrip, `POST /api/v1/auth/login` dengan `{username, password, code}` mengembalikan token untuk header `Authorization: Bearer <token>`.
-
-#### 3. Pengguna & Peran
-| Peran | Hak akses |
+#### 3. Users & Roles
+| Role | Permissions |
 |---|---|
-| **Admin** | Semua fitur + menu **Users** (tambah, ubah peran, reset password, reset 2FA, hapus pengguna) |
-| **Operasional** | Semua fitur kecuali menu Users |
+| **Admin** | Full access + **Users** management (add, edit roles, reset passwords, reset 2FA, delete accounts) |
+| **Operator** | All dashboard & analytics features (excluding user administration) |
 
-- Admin menambah pengguna dengan **password sementara**. Saat login pertama, pengguna memilih password sendiri lalu memasang 2FA.
-- Admin terakhir tidak bisa dihapus atau diturunkan perannya.
-- Admin tanpa pertanyaan pemulihan ditandai **Set recovery question** di menu Users. Klik tanda itu (atau menu ⋮) untuk mengatur pertanyaan pemulihan admin lain; untuk akun sendiri diminta password saat ini.
-- Menu **Profile** (semua pengguna): ubah nama tampilan dan username, ganti password, **Show QR code** (butuh password) untuk memindahkan 2FA ke HP baru, serta atur pertanyaan pemulihan (admin).
+#### 4. Account Recovery
+- **Admin Self-Recovery:** Click *Forgot your password or lost your phone?* on the login page. Answering the recovery question requires an additional factor (2FA code to reset password, or password to reset 2FA).
+- **Operator Recovery:** Handled by an Admin through the **Users** menu.
+- **Full Lockout Recovery:** Remove `auth.json` on the aggregator storage volume to trigger the initial setup wizard again (collected logs remain intact).
 
-#### 4. Lupa Password / HP Hilang
-- **Admin:** klik *Forgot your password or lost your phone?* di halaman login, jawab pertanyaan pemulihan, lalu:
-  - *Lupa password* → konfirmasi dengan kode 2FA, lalu buat password baru.
-  - *HP hilang* → konfirmasi dengan password, lalu scan QR 2FA baru.
-
-  Jawaban saja tidak pernah cukup untuk mengganti keduanya, sehingga pertanyaan keamanan yang tertebak tidak bisa dipakai mengambil alih akun.
-- **Operasional:** minta admin melakukan reset lewat menu **Users**.
-- **Semua admin terkunci:** hapus `auth.json` di volume aggregator lalu jalankan setup ulang (log tidak terpengaruh).
-
-> 🔒 **Opsi Intranet Non-Auth:** Jika Kapture di-*deploy* di jaringan lokal tertutup dan Anda ingin menonaktifkan login secara total, set variabel lingkungan `LOG_CATCHER_AUTH_ENABLED=false`.
-
-*(Opsi lain: Buat Ingress atau ubah tipe Service ke `NodePort` / `LoadBalancer` pada `deploy/05-service.yaml` jika ingin diakses langsung dari jaringan kantor).*
+> 🔒 **Intranet Mode:** To run completely without authentication in closed private networks, set `KAPTURE_AUTH_ENABLED=false`.
 
 ---
 
-## Menjalankan dari Sumber & Pengujian Lokal
+## Running from Source & Local Development
 
-Anda dapat menguji Kapture secara penuh di komputer lokal tanpa perlu cluster Kubernetes asli.
+You can test Kapture locally without a real Kubernetes cluster.
 
-### Prasyarat
-- **Go 1.26+** terpasang
-- Sistem operasi Linux atau macOS
+### Prerequisites
+- **Go 1.26+**
+- Linux or macOS
 
-### 1. Buat Data Simulasi Container Log
+### 1. Generate Simulated Container Logs
 
-Skrip bawaan akan membuat berkas log berformat CRI containerd yang realistis (replika pod, log error, warn, multiline, cronjob):
+Generate realistic CRI-formatted container logs (multi-replica pods, error/warn entries, multi-line traces):
 
 ```bash
 make testdata
-# Log tiruan akan dibuat di testdata/containers/
+# Mock logs created in testdata/containers/
 ```
 
-### 2. Jalankan Agent di Terminal 1
+### 2. Run Agent in Terminal 1
 
 ```bash
 make run-agent
 ```
-Agent akan membaca log di `testdata/containers`, menyimpannya ke database lokal di `testdata/db`, dan membuka port API `:19489`.
+The agent reads logs from `testdata/containers`, stores them in a local BadgerDB at `testdata/db`, and opens API port `:19489`.
 
-### 3. Jalankan Aggregator di Terminal 2
+### 3. Run Aggregator in Terminal 2
 
 ```bash
 make run-aggregator
 ```
-Aggregator akan aktif di port `:19488`, menghubungkan diri ke agent lokal, dan menyajikan dashboard web.
+The aggregator starts on port `:19488`, connects to the local agent, and serves the web UI. Open **`http://localhost:19488`**.
 
-Buka browser di **`http://localhost:19488`**.
-
-### 4. Menjalankan Unit Test
+### 4. Run Unit Tests
 
 ```bash
 make test
@@ -393,200 +377,192 @@ make test
 
 ---
 
-## Manajemen Penyimpanan & Reset Log
+## Storage Management & Log Retention
 
-Kapture memberikan kontrol penuh agar penyimpanan disk server Anda tidak pernah penuh:
+Kapture gives you full control over node disk usage:
 
 ```
 ┌─ Storage Management ────────────────────────────────────────┐
 │  Disk Used:  ████░░░░░░░░░░░░░░░░  154 KB / 5.0 GB (3%)     │
-│  Total Logs: 350 baris                                      │
-│  Rentang:    2026-09-08 s/d 2026-09-10                      │
+│  Total Logs: 350 lines                                      │
+│  Date Range: 2026-09-08 to 2026-09-10                       │
 │                                                             │
-│  [📅 Hapus Sebelum Tanggal: [ 2026-09-09 ] [Hapus]]        │
-│  [⚠️ Reset Total Semua Log]                                  │
+│  [📅 Purge Before Date: [ 2026-09-09 ] [Delete]]            │
+│  [⚠️ Reset All Logs]                                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-1. **Retensi (opsional)** — Default `0`: log dari tanggal-tanggal sebelumnya **tidak dihapus otomatis**. Jika `KAPTURE_STORAGE_RETENTION` diisi (mis. `30d`), hari yang seluruhnya lewat batas dibuang oleh GC tiap 5 menit.
-2. **Disk Cap Hard-Limit** — Parameter `max_disk` (default `5GB`) membatasi kapasitas maksimal per node. Bila batas hampir tercapai, log terlama otomatis dikorbankan terlebih dahulu.
-3. **Reset Manual Seketika** — Buka menu **Storage**, tentukan tanggal yang ingin dihapus, atau tekan **Reset All Logs** untuk mengosongkan seluruh database seketika.
-4. **Backup & Restore** — Di menu **Storage**, kartu *Backup and restore*:
-   - **Download** mengunduh satu berkas `kapture-backup-<waktu>.tar.gz` berisi log setiap node (opsional dibatasi tanggal awal/akhir). Isi arsip: `nodes/<node>/NNNNNN.badger` (format backup BadgerDB) dan `manifest.json`.
-   - **Choose backup file** mengunggah berkas tersebut dan menambahkan lognya. Tidak ada yang dihapus, dan baris yang sudah ada tidak terduplikasi (restore aman diulang). Log tiap node masuk ke agent dengan nama node yang sama, atau ke agent pertama bila node itu tidak ada, misalnya saat me-restore backup produksi ke Kapture di laptop (`make run-agent` + `make run-aggregator`).
-   - Tanggal log mengikuti `KAPTURE_TIMEZONE` Kapture tujuan, retensi tujuan juga berlaku. Posisi baca berkas (offset) tidak ikut di-backup.
-   - Unggahan besar lewat Ingress mungkin perlu menaikkan batas ukuran body, mis. `nginx.ingress.kubernetes.io/proxy-body-size: "0"`.
+1. **Retention (Optional)** — Default `0`: older dates are never dropped automatically. When `KAPTURE_STORAGE_RETENTION` is set (e.g. `30d`), entire calendar days past the cutoff are pruned every 5 minutes.
+2. **Hard Disk Cap** — Parameter `max_disk` (default `5GB`) enforces a maximum local BadgerDB size per node. When approaching limits, the oldest calendar days are dropped automatically.
+3. **Instant Manual Purge** — From the **Storage** view, purge logs before a chosen date or click **Reset All Logs** to empty databases immediately.
+4. **Backup & Restore** — Under the *Backup and restore* card:
+   - **Download** streams a compressed `kapture-backup-<timestamp>.tar.gz` containing node-level BadgerDB backups and `manifest.json`.
+   - **Choose backup file** uploads the archive and appends log entries without duplicates. Missing nodes are routed to available agents, making it easy to restore production backups onto a local laptop instance (`make run-agent` + `make run-aggregator`).
 
 ---
 
-## Dokumentasi REST API
+## REST API Documentation
 
-Kapture menyediakan REST API yang bersih dan mudah diintegrasikan dengan skrip devops atau curl:
+Kapture provides an intuitive REST API for scripting, curl commands, and automation:
 
-| Metode | Endpoint | Deskripsi |
+| Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/v1/logs` | Log urut waktu (default terbaru dulu). Param: `from`, `to` (RFC3339), `date`, `namespace`, `workload`, `workload_type`, `pod`, `container`, `level` (koma), `search`, `regex`, `exclude_ns`, `limit`, `sort=asc\|desc`, `cursor` |
-| `GET` | `/api/v1/logs/export?format=csv\|json` | Ekspor hasil filter (maks `max_results`) |
-| `GET` | `/api/v1/stats/volume` | Histogram volume per level + top workload error. Param filter sama, plus `buckets` |
-| `GET` | `/api/v1/stats/recap?from=YYYY-MM-DD&namespace=X` | Rekap harian per workload: jumlah baris per level, byte, pod yang terlihat |
-| `WS` | `/api/v1/tail` | Live tail WebSocket, parameter filter sama dengan `/api/v1/logs` |
-| `GET` | `/api/v1/catalog` | Semua container yang pernah punya log, termasuk pod lama (namespace, workload, pod, node, first/last seen) |
-| `GET` | `/api/v1/dates` | Daftar tanggal yang memiliki log |
-| `GET` | `/api/v1/namespaces`, `/workloads`, `/pods` | Daftar namespace / workload / pod |
-| `GET` | `/api/v1/nodes` | Status tiap agent |
-| `GET` | `/api/v1/storage` | Kapasitas disk, jumlah baris, sebaran per tanggal dan per node |
-| `GET` | `/api/v1/health` | Versi + status agent (butuh login) |
-| `GET` | `/healthz` | Liveness probe publik |
-| `DELETE` | `/api/v1/logs?date=YYYY-MM-DD` | Hapus log satu tanggal |
-| `DELETE` | `/api/v1/logs?before=YYYY-MM-DD` | Hapus seluruh log sebelum tanggal tertentu |
-| `DELETE` | `/api/v1/logs?namespace=X[&workload=Y]` | Hapus log per namespace / workload |
-| `DELETE` | `/api/v1/logs/all` | **Reset Total:** Hapus seluruh data log di semua node |
-| `GET` | `/api/v1/storage/backup?from=YYYY-MM-DD&to=YYYY-MM-DD` | Unduh backup `.tar.gz` semua node (tanggal opsional) |
-| `POST` | `/api/v1/storage/restore` | Restore: body = berkas `.tar.gz` dari endpoint backup |
-| `GET` `POST` | `/api/v1/users` | *(Admin)* Daftar / tambah pengguna `{username, display_name, role, password}` |
-| `PATCH` `DELETE` | `/api/v1/users/{id}` | *(Admin)* Ubah `{username, display_name, role}` / hapus pengguna |
-| `POST` | `/api/v1/users/{id}/password`, `/api/v1/users/{id}/2fa/reset` | *(Admin)* Reset password sementara / reset 2FA |
-| `PUT` | `/api/v1/users/{id}/recovery` | *(Admin)* Pertanyaan pemulihan admin lain `{question, answer}` |
-| `GET` `PATCH` | `/api/v1/profile` | Profil sendiri (nama tampilan, username) |
-| `POST` | `/api/v1/profile/password`, `/api/v1/profile/2fa` | Ganti password `{current, password}` / tampilkan QR 2FA `{password}` |
-| `PUT` | `/api/v1/profile/recovery` | *(Admin)* Pertanyaan pemulihan `{question, answer, password}` |
+| `GET` | `/api/v1/logs` | Chronological logs (default: newest first). Params: `from`, `to` (RFC3339), `date`, `namespace`, `workload`, `workload_type`, `pod`, `container`, `level`, `search`, `regex`, `exclude_ns`, `limit`, `sort=asc\|desc`, `cursor` |
+| `GET` | `/api/v1/logs/export?format=csv\|json` | Export query results (up to `max_results`) |
+| `GET` | `/api/v1/stats/volume` | Volume histogram by level + top error workloads |
+| `GET` | `/api/v1/stats/recap?from=YYYY-MM-DD&namespace=X` | Daily recap rollups per workload: line counts, bytes, pods observed |
+| `WS` | `/api/v1/tail` | WebSocket live tail streaming |
+| `GET` | `/api/v1/catalog` | Catalog of all containers observed (namespace, workload, pod, node, first/last seen) |
+| `GET` | `/api/v1/dates` | List of dates with recorded logs |
+| `GET` | `/api/v1/namespaces`, `/workloads`, `/pods` | List recorded namespaces, workloads, or pods |
+| `GET` | `/api/v1/nodes` | Status of all discovered agents |
+| `GET` | `/api/v1/storage` | Storage capacity, line counts, and node/date breakdowns |
+| `GET` | `/api/v1/health` | Version + agent status (requires authentication) |
+| `GET` | `/healthz` | Public liveness probe endpoint |
+| `DELETE` | `/api/v1/logs?date=YYYY-MM-DD` | Delete logs for a specific calendar date |
+| `DELETE` | `/api/v1/logs?before=YYYY-MM-DD` | Delete all logs prior to a date |
+| `DELETE` | `/api/v1/logs?namespace=X[&workload=Y]` | Delete logs for a namespace / workload |
+| `DELETE` | `/api/v1/logs/all` | **Reset All:** Wipe all log databases across all nodes |
+| `GET` | `/api/v1/storage/backup?from=YYYY-MM-DD&to=YYYY-MM-DD` | Download `.tar.gz` backup archive across all nodes |
+| `POST` | `/api/v1/storage/restore` | Restore: upload `.tar.gz` backup file |
+| `GET` `POST` | `/api/v1/users` | *(Admin)* List / create user `{username, display_name, role, password}` |
+| `PATCH` `DELETE` | `/api/v1/users/{id}` | *(Admin)* Update `{username, display_name, role}` / delete user |
+| `POST` | `/api/v1/users/{id}/password`, `/api/v1/users/{id}/2fa/reset` | *(Admin)* Reset temporary password / reset 2FA |
+| `PUT` | `/api/v1/users/{id}/recovery` | *(Admin)* Update another admin's recovery question |
+| `GET` `PATCH` | `/api/v1/profile` | Current user profile (display name, username) |
+| `POST` | `/api/v1/profile/password`, `/api/v1/profile/2fa` | Change password / display 2FA enrollment QR code |
+| `PUT` | `/api/v1/profile/recovery` | *(Admin)* Update recovery question `{question, answer, password}` |
 
-Pagination: kirim `next_cursor` dari respons sebelumnya sebagai `cursor`. Jika `partial: true`, batas scan per request tercapai dan cursor melanjutkan pencarian.
-
-### Contoh Pemanggilan Curl:
+### Curl Examples:
 
 ```bash
-# 1. Buka akses ke aggregator (terminal terpisah, atau tambahkan & di akhir)
+# 1. Forward access to aggregator
 kubectl port-forward -n kapture svc/kapture 19488:19488
 
-# 2. Login sekali untuk mendapat token (kode = 6 digit dari authenticator)
+# 2. Authenticate to obtain a session token
 TOKEN=$(curl -s -X POST http://localhost:19488/api/v1/auth/login \
   -d '{"username":"admin","password":"<password>","code":"123456"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
 
-# Ambil log error dari workload 'api-server' pada hari ini
+# Fetch error logs for workload 'api-server' today
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:19488/api/v1/logs?workload=api-server&level=ERROR&limit=50"
 
-# Hapus log yang berumur lebih dari 3 hari lalu
+# Purge logs older than 3 days
 curl -H "Authorization: Bearer $TOKEN" -X DELETE "http://localhost:19488/api/v1/logs?before=2026-09-07"
 
-# Reset bersih seluruh database
+# Cleanly wipe all logs across all nodes
 curl -H "Authorization: Bearer $TOKEN" -X DELETE "http://localhost:19488/api/v1/logs/all"
 
-# Backup semua node ke berkas lokal, lalu restore ke Kapture lain (mis. di laptop)
+# Backup all nodes to a local file
 curl -H "Authorization: Bearer $TOKEN" -o kapture-backup.tar.gz "http://localhost:19488/api/v1/storage/backup?from=2026-09-01"
-curl -H "Authorization: Bearer $TOKEN" -X POST --data-binary @kapture-backup.tar.gz "http://localhost:19488/api/v1/storage/restore"
 ```
 
-Token berlaku 30 hari. Jika `KAPTURE_AUTH_ENABLED=false`, header `Authorization` tidak diperlukan.
-
 ---
 
-## Troubleshooting: Log Tidak Muncul
+## Troubleshooting
 
-| Gejala | Penyebab & Solusi |
+| Symptom | Cause & Solution |
 |---|---|
-| Dashboard: *No agents discovered* | Aggregator tidak menemukan agent. Cek `kubectl get pods -n kapture -l role=agent` dan service headless `kapture-agents`. |
-| Dashboard: *No logs collected yet* | Agent jalan tapi belum menyimpan log. Cek log agent: `cannot open log file (is its symlink target mounted?)` berarti target symlink tidak ter-mount. Node dengan runtime Docker butuh mount `/var/lib/docker/containers` (lihat komentar di `deploy/03-agent-daemonset.yaml`). |
-| Aggregator restart terus | Versi lama memakai liveness probe `/api/v1/health` yang butuh login (401). Gunakan manifest terbaru (`/healthz`). |
-| Upgrade dari versi lama | Layout key database berubah (urut waktu). Saat start, agent menghapus data lama beserta offset lalu membaca ulang file log yang masih ada di node. |
+| Dashboard: *No agents discovered* | Aggregator cannot discover agent pods. Check `kubectl get pods -n kapture -l role=agent` and headless service `kapture-agents`. |
+| Dashboard: *No logs collected yet* | Agents are running but not capturing logs. Check agent logs: `cannot open log file (is its symlink target mounted?)`. Nodes using Docker container runtimes require `/var/lib/docker/containers` mounted. |
+| Aggregator keeps restarting | Outdated manifest using `/api/v1/health` (requires login) for liveness probes. Upgrade to `/healthz`. |
+| Upgrading from legacy schema | Key schema changed to chronological sort. On startup, agents wipe outdated schemas and re-tail existing node log files. |
 
 ---
 
-## Konfigurasi Lingkungan (Environment Variables)
+## Environment Variables
 
-Konfigurasi dibaca dari variabel lingkungan (`KAPTURE_*`, dengan `LOG_CATCHER_*` sebagai nama lama). `config.example.yaml` hanya dokumentasi, tidak dibaca oleh binary.
+Settings are read from environment variables (`KAPTURE_*`, with legacy `LOG_CATCHER_*` aliases).
 
-| Variabel Lingkungan | Nilai Bawaan | Keterangan |
+| Variable | Default | Description |
 |---|---|---|
-| `LOG_CATCHER_MODE` | `agent` | Mode eksekusi: `agent` atau `aggregator` |
-| `LOG_CATCHER_LOG_PATH` | `/var/log/containers` | Direktori target file log di node host |
-| `LOG_CATCHER_STORAGE_PATH`| `/data/kapture` | Direktori database BadgerDB lokal |
-| `KAPTURE_TIMEZONE` | `TZ` atau `UTC` | Zona waktu IANA, mis. `Asia/Jakarta`. Menentukan batas tanggal (penyimpanan, rekap, hapus per tanggal) dan jam di dashboard. Samakan di agent dan aggregator |
-| `LOG_CATCHER_STORAGE_RETENTION` | `0` (simpan terus) | `0` = tidak dihapus otomatis (hanya `max_disk` atau hapus manual). Bisa juga `30d`, `168h` |
-| `LOG_CATCHER_STORAGE_MAX_DISK` | `5GB` | Batas maksimum ruang disk sebelum rotasi paksa |
-| `LOG_CATCHER_AGENT_PORT` | `19489` | Port HTTP internal agent |
-| `LOG_CATCHER_DASHBOARD_PORT` | `19488` | Port antarmuka web Aggregator |
-| `LOG_CATCHER_AUTH_ENABLED` | `true` | Login + 2FA di dashboard (`false` untuk intranet tertutup) |
-| `LOG_CATCHER_DISCOVERY_METHOD` | `kubernetes` | Metode penemuan node agent (`kubernetes` / `static`) |
-| `LOG_CATCHER_LOG_LEVEL` | `info` | Tingkat log internal (`debug`, `info`, `warn`, `error`) |
+| `KAPTURE_MODE` | `agent` | Execution mode: `agent` or `aggregator` |
+| `KAPTURE_LOG_PATH` | `/var/log/containers` | Container log directory on the host node |
+| `KAPTURE_STORAGE_PATH`| `/data/kapture` | Local BadgerDB database directory |
+| `KAPTURE_TIMEZONE` | `TZ` or `UTC` | IANA timezone (e.g. `Asia/Jakarta`) for date partitioning & UI timestamps |
+| `KAPTURE_STORAGE_RETENTION` | `0` (indefinite) | Auto-retention duration (e.g. `30d`, `168h`). `0` disables auto-purge |
+| `KAPTURE_STORAGE_MAX_DISK` | `5GB` | Max disk space threshold per node before emergency oldest-day pruning |
+| `KAPTURE_AGENT_PORT` | `19489` | Internal HTTP API port for agent |
+| `KAPTURE_DASHBOARD_PORT` | `19488` | Web dashboard & REST API port for aggregator |
+| `KAPTURE_AUTH_ENABLED` | `true` | Enables login + 2FA (`false` disables auth) |
+| `KAPTURE_DISCOVERY_METHOD` | `kubernetes` | Agent discovery method (`kubernetes` / `static`) |
+| `KAPTURE_LOG_LEVEL` | `info` | Internal log level (`debug`, `info`, `warn`, `error`) |
 
 ---
 
-## Tumpukan Teknologi
+## Tech Stack
 
-| Komponen | Pustaka / Versi | Alasan Pemilihan |
+| Component | Library / Version | Rationale |
 |---|---|---|
-| **Bahasa Utama** | Go **1.26+** | Kompilasi single binary, performa konkurensi goroutine tinggi, ekosistem native K8s |
-| **Engine Basis Data** | BadgerDB **v4.9** | Key-Value store embedded murni Go (tanpa CGO), cepat untuk operasi batch write, dilengkapi kompresi Snappy bawaan & TTL |
-| **Pendeteksi Berkas** | `fsnotify` **v1.10** + poll 1 detik | *inotify* untuk file baru/terhapus. `/var/log/containers/*.log` adalah symlink ke `/var/log/pods`, dan inotify tidak melaporkan tulisan ke target symlink, jadi isi file dibaca lewat poll ringan (1 `fstat` per file per detik) yang juga mengikuti rotasi kubelet |
-| **Frontend UI** | HTML5, CSS3 kustom, Vanilla JS | Berkas statis di-embed ke dalam binary melalui `go:embed`. Membuka dashboard instan tanpa lag dan tanpa build-step Node yang rumit |
-| **Format Kontainer** | CRI Log Specification | Kompatibel penuh dengan runtime containerd dan CRI-O standar Kubernetes modern |
+| **Language** | Go **1.26+** | Single static binary, low memory footprint, native Kubernetes ecosystem |
+| **Storage Engine** | BadgerDB **v4.9** | Pure-Go embedded key-value store (no CGO), fast batch writes, Snappy compression |
+| **File Watcher** | `fsnotify` **v1.10** + 1s poll | *inotify* for file creation; lightweight 1s poll handles symlinks and kubelet log rotations |
+| **Frontend UI** | HTML5, Modern CSS, Vanilla JS | Embedded into binary via `go:embed`. Instant dashboard loads with zero Node build pipeline |
+| **Container Spec** | CRI Log Specification | Fully compatible with standard Kubernetes containerd and CRI-O runtimes |
 
 ---
 
-## Struktur Direktori
+## Directory Structure
 
 ```
 k8s-log-catcher/
 ├── cmd/
 │   └── kapture/
-│       └── main.go                 # Entrypoint aplikasi (mode switch)
+│       └── main.go                 # Application entrypoint (mode switch)
 ├── internal/
-│   ├── agent/                      # Logika pengumpul log pada node
-│   │   ├── agent.go                # Siklus hidup agent & batch writer
-│   │   ├── enricher/               # Ekstraksi metadata pod & deteksi replika
-│   │   ├── parser/                 # Parser CRI containerd & deteksi level log
-│   │   ├── server/                 # HTTP server lokal agent
-│   │   └── tailer/                 # Inotify watcher & pembaca offset berkas
-│   ├── aggregator/                 # Logika router & pusat dashboard
-│   │   ├── aggregator.go           # Siklus hidup aggregator & HTTP server
-│   │   ├── discovery/              # Penemu node K8s / endpoint statis
-│   │   ├── fanout/                 # Query paralel ke seluruh node & merge sort
-│   │   └── handler/                # REST API endpoints & route statis
-│   ├── config/                     # Pengurai konfigurasi YAML & ENV
-│   ├── model/                      # Definisi struct & protokol data log
+│   ├── agent/                      # Node log collector logic
+│   │   ├── agent.go                # Agent lifecycle & batch writer
+│   │   ├── enricher/               # Pod metadata & replica detection
+│   │   ├── parser/                 # CRI containerd log parser & level detection
+│   │   ├── server/                 # Node-local HTTP server
+│   │   └── tailer/                 # Inotify watcher & file offset tracker
+│   ├── aggregator/                 # Router & central dashboard logic
+│   │   ├── aggregator.go           # Aggregator lifecycle & HTTP server
+│   │   ├── discovery/              # K8s node / static endpoint discovery
+│   │   ├── fanout/                 # Parallel fan-out queries & merge-sort
+│   │   └── handler/                # REST API endpoints & static routes
+│   ├── config/                     # Configuration & ENV parser
+│   ├── model/                      # Structs & protocol definitions
 │   └── storage/
-│       └── badger/                 # Implementasi database BadgerDB & indeks tanggal
+│       └── badger/                 # BadgerDB implementation & date indexing
 ├── web/
-│   ├── embed.go                    # Direktif go:embed untuk bundling UI
-│   └── static/                     # Aset dashboard web (HTML, CSS, JS, Icon)
+│   ├── embed.go                    # go:embed directives for UI assets
+│   └── static/                     # Web dashboard assets (HTML, CSS, JS, icons)
 ├── charts/
-│   └── kapture/                    # Helm Chart resmi (Chart.yaml, values.yaml, templates)
+│   └── kapture/                    # Official Helm Chart (Chart.yaml, values.yaml, templates)
 ├── deploy/
-│   ├── install.yaml                # Manifest standalone tunggal publik (Quick Install)
-│   ├── 00-namespace.yaml           # Namespace isolasi kapture
-│   ├── 01-rbac.yaml                # Izin ClusterRole & ServiceAccount
-│   ├── 02-secret.yaml              # Kredensial awal admin
-│   ├── 03-agent-daemonset.yaml     # Manifest DaemonSet agent per node
-│   ├── 04-aggregator-deployment.yaml # Manifest Deployment aggregator
-│   └── 05-service.yaml             # Service dashboard & agent discovery
+│   ├── install.yaml                # Universal standalone manifest (Quick Install)
+│   ├── 00-namespace.yaml           # Isolated kapture namespace
+│   ├── 01-rbac.yaml                # ClusterRole & ServiceAccount permissions
+│   ├── 02-secret.yaml              # Default admin credentials
+│   ├── 03-agent-daemonset.yaml     # Per-node agent DaemonSet
+│   ├── 04-aggregator-deployment.yaml # Aggregator Deployment
+│   └── 05-service.yaml             # Dashboard & agent discovery services
 ├── build/
-│   └── appicon.svg                 # Ikon vektor aplikasi bergaya macOS
+│   └── appicon.svg                 # Application vector icon
 ├── scripts/
-│   ├── release-ghcr.sh             # Pipeline rilis otomatis Docker & Helm ke GHCR
-│   └── generate-testdata.sh        # Generator simulasi log untuk pengujian
+│   ├── release-ghcr.sh             # Docker & Helm GHCR release pipeline
+│   └── generate-testdata.sh        # Test log data generator
 ├── Dockerfile                      # Multi-stage container build (~15 MB)
-├── Makefile                        # Otomasi build, test, dan dev runner
-├── prd.md                          # Dokumen Product Requirements (PRD)
-└── README.md
+├── Makefile                        # Build, test, and dev runner automation
+├── prd.md                          # Product Requirements Document
+├── README.id.md                    # Indonesian documentation
+└── README.md                       # English documentation (default)
 ```
 
 ---
 
-## Lisensi
+## License
 
-Didistribusikan di bawah lisensi [MIT](LICENSE). Bebas digunakan, dimodifikasi, dan didistribusikan baik untuk keperluan pribadi maupun komersial.
+Distributed under the [MIT](LICENSE) License. Free to use, modify, and distribute for both personal and commercial purposes.
 
 ---
 
-## Kredit
+## Credits
 
-**Penulis:** Ari Ardiansyah — [github.com/aribrilliantsyah](https://github.com/aribrilliantsyah) · [ariardiansyah.study@gmail.com](mailto:ariardiansyah.study@gmail.com)
+**Author:** Ari Ardiansyah — [github.com/aribrilliantsyah](https://github.com/aribrilliantsyah) · [ariardiansyah.study@gmail.com](mailto:ariardiansyah.study@gmail.com)
 
-Dibuat untuk mempermudah monitoring log pod Kubernetes agar tidak lagi hilang saat dibutuhkan, tanpa peduli framework atau bahasa yang dipakai aplikasinya.
+Built to ensure Kubernetes container logs are never lost when you need them most, regardless of programming languages or frameworks.
 
-Sebagian perancangan dan penulisan kode dibantu model **Claude** (Anthropic) dan **Gemini** (Google); setiap usulan tetap ditinjau, diuji, dan disesuaikan secara manual.
+JetBrains Mono Nerd Font (SIL OFL) and Lucide icons (ISC).
 
-Font JetBrains Mono Nerd Font (SIL OFL) dan ikon Lucide (ISC). Halaman **About** di dashboard memuat ringkasan yang sama.
-
-Dibangun dengan Go, kecintaan pada sistem yang minimalis, dan semangat otomasi cloud-native. ⭐
+Crafted with Go, a deep passion for minimalist engineering, and cloud-native automation. ⭐
