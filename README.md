@@ -460,6 +460,8 @@ curl -H "Authorization: Bearer $TOKEN" -o kapture-backup.tar.gz "http://localhos
 
 ## Troubleshooting
 
+> 📖 **Agent Troubleshooting Guide:** For step-by-step guidance on resolving agent pods in `CrashLoopBackOff`, out-of-memory errors (`OOMKilled`), or database locks (`BadgerDB lock`), see **[`docs/AGENT_TROUBLESHOOTING.md`](docs/AGENT_TROUBLESHOOTING.md)**.
+
 | Symptom | Cause & Solution |
 |---|---|
 | Dashboard: *No agents discovered* | Aggregator cannot discover agent pods. Check `kubectl get pods -n kapture -l role=agent` and headless service `kapture-agents`. |

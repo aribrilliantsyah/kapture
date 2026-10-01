@@ -488,6 +488,8 @@ Token berlaku 30 hari. Jika `KAPTURE_AUTH_ENABLED=false`, header `Authorization`
 
 ## Troubleshooting: Log Tidak Muncul
 
+> 📖 **Panduan Troubleshooting Agent:** Untuk panduan langkah demi langkah mengatasi pod agent yang mengalami status `CrashLoopBackOff`, kehabisan memori (`OOMKilled`), atau database terkunci (`BadgerDB lock`), buka **[`docs/AGENT_TROUBLESHOOTING.md`](docs/AGENT_TROUBLESHOOTING.md)**.
+
 | Gejala | Penyebab & Solusi |
 |---|---|
 | Dashboard: *No agents discovered* | Aggregator tidak menemukan agent. Cek `kubectl get pods -n kapture -l role=agent` dan service headless `kapture-agents`. |
